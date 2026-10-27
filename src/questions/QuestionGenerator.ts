@@ -23,7 +23,7 @@ function getRandomDivisor(dividend: number): number {
 }
 
 /**
- * get a list of all of the factors of a certain number (explanation: https://pynative.com/python-find-all-divisors-of-number/)
+ * get a list of all of the factors of a positive number (explanation: https://pynative.com/python-find-all-divisors-of-number/)
  */
 function getFactors(n: number) : number[] {
   let factors: number[] = [];
@@ -54,7 +54,7 @@ export function getQuestion(difficulty: number): Question {
   if (isMultiplication) {
     factor = getRandomNumber(RANGE);
   } else {
-    factor = getRandomDivisor(answerValue);
+    factor = getRandomDivisor(Math.abs(answerValue));
   }
   const multiplier = isMultiplication ? factor : 1 / factor;
 
@@ -64,7 +64,7 @@ export function getQuestion(difficulty: number): Question {
 
   // format prompt
   // x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
-  const formattedPrompt: string = `x ${isMultiplication ? '*' : '/'} ${factor} ${addedNumber > 0 ? '+' : '-'} ${addedNumber} = ${rightHandSide}`;
+  const formattedPrompt: string = `x ${isMultiplication ? '*' : '/'} ${factor} ${addedNumber > 0 ? '+' : '-'} ${Math.abs(addedNumber)} = ${rightHandSide}`;
 
   return {prompt: formattedPrompt, answer: String(answerValue)}
 }
