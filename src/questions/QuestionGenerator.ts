@@ -49,5 +49,22 @@ export function getQuestion(difficulty: number): Question {
   // generate answer
   const answerValue: number = getRandomNumber(RANGE);
 
-  
+  const isMultiplication: boolean = Math.random() > 0.5;
+  let factor: number;
+  if (isMultiplication) {
+    factor = getRandomNumber(RANGE);
+  } else {
+    factor = getRandomDivisor(answerValue);
+  }
+  const multiplier = isMultiplication ? factor : 1 / factor;
+
+  const addedNumber = getRandomNumber(RANGE);
+
+  const rightHandSide = answerValue * multiplier + addedNumber;
+
+  // format prompt
+  // x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
+  const formattedPrompt: string = `x ${isMultiplication ? '*' : '/'} ${factor} ${addedNumber > 0 ? '+' : '-'} ${addedNumber} = ${rightHandSide}`;
+
+  return {prompt: formattedPrompt, answer: String(answerValue)}
 }
