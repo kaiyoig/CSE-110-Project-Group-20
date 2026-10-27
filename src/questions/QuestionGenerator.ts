@@ -10,7 +10,7 @@ const RANGE: number = 20; // answers can range from -RANGE to +RANGE
  * @returns a non-zero number in the range [-range, range]
  */
 function getRandomNumber(range: number): number {
-  const raw: number = Math.ceil(Math.random() * range);
+  const raw: number = Math.floor(Math.random() * range) + 1;
   const isPositive: boolean = Math.random() > 0.5;
 
   return isPositive ? raw : -raw;
@@ -19,9 +19,9 @@ function getRandomNumber(range: number): number {
 /**
  * randomly generate a divisor such that dividend / divisor is an integer
  *
- * @param dividend - number off of which divisor should be derived from
+ * @param dividend - number from which divisor should be derived from
  *
- * @returns a divisor such that dividence / divisor is an integer
+ * @returns a divisor such that dividend / divisor is an integer
  */
 function getRandomDivisor(dividend: number): number {
   const factors: number[] = getFactors(dividend);
