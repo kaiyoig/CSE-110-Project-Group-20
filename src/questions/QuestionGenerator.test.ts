@@ -67,6 +67,14 @@ describe('getQuestion', () => {
     }
   });
 
+  it('never uses a factor of one', () => {
+    for (const question of generateQuestions(ITERATIONS)) {
+      const { factor } = parsePrompt(question.prompt);
+
+      expect(factor, question.prompt).not.toBe(1);
+    }
+  });
+
   it('only divides by numbers that evenly divide the answer', () => {
     for (const question of generateQuestions(ITERATIONS)) {
       const { operator, factor } = parsePrompt(question.prompt);
