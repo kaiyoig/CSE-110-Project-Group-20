@@ -13,9 +13,41 @@ function getRandomNumber(range: number): number {
 }
 
 /**
+ * randomly generate a divisor such that dividend / divisor is an integer
+ */
+function getRandomDivisor(dividend: number): number {
+  const factors: number[] = getFactors(dividend);
+  const randomIndex: number = Math.floor(Math.random() * factors.length);
+
+  return factors[randomIndex];
+}
+
+/**
+ * get a list of all of the factors of a certain number (explanation: https://pynative.com/python-find-all-divisors-of-number/)
+ */
+function getFactors(n: number) : number[] {
+  let factors: number[] = [];
+
+  let d = 1;
+  while (d * d <= n) {
+    if (n % d === 0) {
+      factors.push(d)
+      if (d !== n / d) {
+          factors.push(n / d);
+      }
+    }
+    d++;
+  }
+
+  return factors;
+}
+
+/**
  * randomly generates and returns a Question
  */
 export function getQuestion(difficulty: number): Question {
   // generate answer
   const answerValue: number = getRandomNumber(RANGE);
+
+  
 }
