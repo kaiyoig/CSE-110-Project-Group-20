@@ -3,46 +3,41 @@ import { Question } from "./Question";
 const RANGE: number = 20; // answers can range from -RANGE to +RANGE
 
 /**
- * randomly generate a non-zero number in a specified inclusive range
- *
- * @param range - maximum absolute value of generated number
- *
- * @returns a non-zero number in the range [-range, range]
+ * helper functions for getting random numbers for question generation
  */
-function getRandomNumber(range: number): number {
-  const raw: number = Math.floor(Math.random() * range) + 1;
-  const isPositive: boolean = Math.random() > 0.5;
+function randomInt(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
 
-  return isPositive ? raw : -raw;
+function randomSign(): 1 | -1 {
+  return Math.random() > 0.5 ? 1 : -1;
+}
+
+function randomChoice<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function randomNonZero(range: number): number {
+  return randomInt(1, range) * randomSign();
 }
 
 /**
  * randomly generate a divisor, other than one, such that dividend / divisor is an integer
- *
- * @param dividend - number from which divisor should be derived from
- *
- * @returns a divisor such that dividend / divisor is an integer
  */
 function getRandomDivisor(dividend: number): number {
   const rawFactors: number[] = getFactors(dividend);
 
   // cut one from the factors
   const factors: number[] = rawFactors.filter(factor => factor !== 1);
-  
-  const randomIndex: number = Math.floor(Math.random() * factors.length);
 
-  return factors[randomIndex];
+  return randomChoice(factors);
 }
 
 /**
  * get a list of all of the factors of a positive number (explanation: https://pynative.com/python-find-all-divisors-of-number/)
- *
- * @param n: the number which should be factored
- *
- * @return list of factors of n; unsorted
  */
 function getFactors(n: number) : number[] {
-  let factors: number[] = [];
+  const factors: number[] = [];
 
   let d = 1;
   while (d * d <= n) {
@@ -68,19 +63,17 @@ function getFactors(n: number) : number[] {
  */
 export function getQuestion(difficulty: number): Question {
   // generate answer
-  const answerValue: number = getRandomNumber(RANGE);
+  const answerValue: number = randomNonZero(RANGE);
 
   // if answer value is +/- 1, take multiplication route instead
   const isMultiplication: boolean = Math.abs(answerValue) === 1 || Math.random() > 0.5;
   let factor: number = 1;
   if (isMultiplication) {
-    while (factor === 1) {
-      factor = getRandomNumber(RANGE);
-    }
+    factor = randomInt(2, RANGE) * randomSign();
   } else {
     factor = getRandomDivisor(Math.abs(answerValue));
   }
-  const addedNumber = getRandomNumber(RANGE);
+  const addedNumber = randomNonZero(RANGE);
 
   const rightHandSide = (isMultiplication ? answerValue * factor : answerValue / factor) + addedNumber;
 
