@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
@@ -22,7 +22,8 @@
   },
   "homepage": "https://github.com/kaiyoig/CSE-110-Project-Group-20#readme",
   "dependencies": {
-    "konva": "^10.9.0"
+    "konva": "^10.9.0",
+    "vitest": "^5.0.5"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
