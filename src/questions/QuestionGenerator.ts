@@ -17,14 +17,18 @@ function getRandomNumber(range: number): number {
 }
 
 /**
- * randomly generate a divisor such that dividend / divisor is an integer
+ * randomly generate a divisor, other than one, such that dividend / divisor is an integer
  *
  * @param dividend - number from which divisor should be derived from
  *
  * @returns a divisor such that dividend / divisor is an integer
  */
 function getRandomDivisor(dividend: number): number {
-  const factors: number[] = getFactors(dividend);
+  const rawFactors: number[] = getFactors(dividend);
+
+  // cut one from the factors
+  const factors: number[] = rawFactors.filter(factor => factor !== 1);
+  
   const randomIndex: number = Math.floor(Math.random() * factors.length);
 
   return factors[randomIndex];
@@ -43,7 +47,7 @@ function getFactors(n: number) : number[] {
   let d = 1;
   while (d * d <= n) {
     if (n % d === 0) {
-      factors.push(d)
+      factors.push(d);
       if (d !== n / d) {
           factors.push(n / d);
       }
