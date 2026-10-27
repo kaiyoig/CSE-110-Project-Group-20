@@ -4,6 +4,10 @@ const RANGE: number = 20; // answers can range from -RANGE to +RANGE
 
 /**
  * randomly generate a non-zero number in a specified inclusive range
+ *
+ * @param range - maximum absolute value of generated number
+ *
+ * @returns a non-zero number in the range [-range, range]
  */
 function getRandomNumber(range: number): number {
   const raw: number = Math.ceil(Math.random() * range);
@@ -14,6 +18,10 @@ function getRandomNumber(range: number): number {
 
 /**
  * randomly generate a divisor such that dividend / divisor is an integer
+ *
+ * @param dividend - number off of which divisor should be derived from
+ *
+ * @returns a divisor such that dividence / divisor is an integer
  */
 function getRandomDivisor(dividend: number): number {
   const factors: number[] = getFactors(dividend);
@@ -24,6 +32,10 @@ function getRandomDivisor(dividend: number): number {
 
 /**
  * get a list of all of the factors of a positive number (explanation: https://pynative.com/python-find-all-divisors-of-number/)
+ *
+ * @param n: the number which should be factored
+ *
+ * @return list of factors of n; unsorted
  */
 function getFactors(n: number) : number[] {
   let factors: number[] = [];
@@ -44,6 +56,11 @@ function getFactors(n: number) : number[] {
 
 /**
  * randomly generates and returns a Question
+ * @todo change question generation based on difficulty; higher difficulty = more steps
+ *
+ * @param difficulty: 0 = easy, 1 = medium, 2 = hard
+ * 
+ * @return a Question with a prompt in the format x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
  */
 export function getQuestion(difficulty: number): Question {
   // generate answer
