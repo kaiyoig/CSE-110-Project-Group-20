@@ -2,19 +2,20 @@ import { Question } from "./Question";
 
 const RANGE: number = 20; // answers can range from -RANGE to +RANGE
 
-function generateRandomAnswer(range: number): number {
-  return Math.floor(Math.random() * (2 * range + 1)) - range;
+/**
+ * randomly generate a non-zero number in a specified inclusive range
+ */
+function getRandomNumber(range: number): number {
+  const raw: number = Math.ceil(Math.random() * range);
+  const isPositive: boolean = Math.random() > 0.5;
+
+  return isPositive ? raw : -raw;
 }
 
-// question generator
+/**
+ * randomly generates and returns a Question
+ */
 export function getQuestion(difficulty: number): Question {
   // generate answer
-  let answerValue: number = generateRandomAnswer(RANGE);
-
-  // modify answer with difficulty number steps to generate prompt
-
-  
-  // format prompt and answer
-
-  return { prompt: "Example Prompt", answer: "Example Answer" };
+  const answerValue: number = getRandomNumber(RANGE);
 }
