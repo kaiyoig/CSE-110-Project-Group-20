@@ -70,18 +70,19 @@ export function getQuestion(difficulty: number): Question {
   // generate answer
   const answerValue: number = getRandomNumber(RANGE);
 
-  const isMultiplication: boolean = Math.random() > 0.5;
-  let factor: number;
+  // if answer value is +/- 1, take multiplication route instead
+  const isMultiplication: boolean = Math.abs(answerValue) === 1 || Math.random() > 0.5;
+  let factor: number = 1;
   if (isMultiplication) {
-    factor = getRandomNumber(RANGE);
+    while (factor === 1) {
+      factor = getRandomNumber(RANGE);
+    }
   } else {
     factor = getRandomDivisor(Math.abs(answerValue));
   }
-  const multiplier = isMultiplication ? factor : 1 / factor;
-
   const addedNumber = getRandomNumber(RANGE);
 
-  const rightHandSide = answerValue * multiplier + addedNumber;
+  const rightHandSide = (isMultiplication ? answerValue * factor : answerValue / factor) + addedNumber;
 
   // format prompt
   // x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
