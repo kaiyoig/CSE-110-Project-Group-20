@@ -33,6 +33,28 @@ export class MapController {
     }
   }
 
+  // Called when player completed the vault; finishes game and switches to results screen
+  public completeVault(vaultId: string = 'vault'): void {
+    const vault = this.rooms.get(vaultId);
+    if (vault) {
+      vault.setCompleted();
+      this.completedRooms.add(vaultId);
+    }
+
+    // Use ScreenController to update screen state to results
+    this.currentScreen = 'results';
+    this.activeRoom = null;
+
+    if (this.onScreenChange) {
+      this.onScreenChange({
+        screen: 'results',
+        room: vault || null,
+        name: 'Results',
+      });
+    }
+    
+  }
+
   // Called when player presses on a room button
   public clickRoomButton(roomId: string): boolean {
     const room = this.rooms.get(roomId);

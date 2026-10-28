@@ -133,7 +133,7 @@ describe('MapController Tests', () => {
     controller.completeRoom('room_b');
     expect(controller.completedRooms.has('room_b')).toBe(true);
 
-    // Attempt Room C again\
+    // Attempt Room C again
     const result = controller.clickRoomButton('room_c');
 
     expect(result).toBe(true);
@@ -160,4 +160,31 @@ describe('MapController Tests', () => {
       name: 'Map',
     });
   });
+
+  test('completeVault marks the vault complete and switches screen to results', () => {
+    const vault = new Room({
+      id: 'vault',
+      name: 'Vault',
+      prerequisites: ['room_c'],
+    });
+
+    controller.registerRoom(vault);
+    controller.completeVault('vault');
+
+    // Verify vault completion state
+    expect(controller.completedRooms.has('vault')).toBe(true);
+    expect(vault.isCompleted).toBe(true);
+
+    // Verify screen state transitions to results
+    expect(controller.currentScreen).toBe('results');
+    expect(controller.activeRoom).toBeNull();
+
+    // Verify the callback notified listeners
+    expect(screenChangeMock).toHaveBeenCalledWith({
+      screen: 'results',
+      room: vault,
+      name: 'Results',
+    });
+  });
+
 });
