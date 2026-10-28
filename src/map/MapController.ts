@@ -1,4 +1,4 @@
-import { Room } from "./room";
+import { Room } from "./Room";
 
 export interface SwitchMapScreen {
     screen: string;
