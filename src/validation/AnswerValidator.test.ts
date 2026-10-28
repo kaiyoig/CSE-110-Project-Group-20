@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { AnswerHistory } from "./AnswerHistory";
 import { AnswerValidator } from "./AnswerValidator";
 
@@ -6,51 +6,79 @@ import { AnswerValidator } from "./AnswerValidator";
 describe("AnswerValidator", () => {
     it("Should Accept Correct Answer", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
+
+        const validator = new AnswerValidator(history, score);
 
         const result = validator.validateAnswer(
             "5 + 3 = ?",
             "8",
-            "8"
+            "8",
+            true
         );
 
         expect(result).toBe(true);
+        expect(score.roomSolved).toHaveBeenCalledOnce();
+        expect(score.answerIncorrect).not.toHaveBeenCalled();
     });
 
     //Test 2: checks if incorrect answer returns false
     it("Should Reject Incorrect Answer", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
+
+        const validator = new AnswerValidator(history, score);
 
         const result = validator.validateAnswer(
             "5 + 3 = ?",
             "6",
-            "8"
+            "8",
+            true
         );
 
         expect(result).toBe(false);
+        expect(score.roomSolved).not.toHaveBeenCalled();
+        expect(score.answerIncorrect).toHaveBeenCalledOnce();
     });
 
     //Test 3: checks that answers should ignore whitespace
     it("Should Ignore Extra Whitespace", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
 
+        const validator = new AnswerValidator(history, score);
         const result = validator.validateAnswer(
             "5 + 3 = ?",
             " 8 ",
-            "8"
+            "8",
+            true
         );
 
         expect(result).toBe(true);
+        expect(score.roomSolved).toHaveBeenCalledOnce();
+        expect(score.answerIncorrect).not.toHaveBeenCalled();
     });
 
     //Test 4: Correct Answers are added to history
     it("Should Record Correct Answer", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
 
-        validator.validateAnswer("5 + 3 = ?", "8", "8");
+        const validator = new AnswerValidator(history, score);
+        validator.validateAnswer("5 + 3 = ?", "8", "8", true);
 
         expect(history.getResults()).toEqual([
             {
@@ -60,14 +88,20 @@ describe("AnswerValidator", () => {
                 isCorrect: true
             }
         ]);
+
+
     });
 
     //Test 5: Incorrect Answers are added to history
     it("Should Record Incorrect Answer", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
 
-        validator.validateAnswer("5 + 3 = ?", "6", "8");
+        const validator = new AnswerValidator(history, score);
+        validator.validateAnswer("5 + 3 = ?", "6", "8", true);
 
         expect(history.getResults()).toEqual([
             {
@@ -82,11 +116,15 @@ describe("AnswerValidator", () => {
     //Test 5: Multiple Answers are added to history
     it("Should Track Multiple Answers", () => {
         const history = new AnswerHistory();
-        const validator = new AnswerValidator(history);
+        const score = {
+            answerIncorrect: vi.fn(),
+            roomSolved: vi.fn().mockReturnValue(100)
+        }
 
-        validator.validateAnswer("5 + 3 = ?", "8", "8");
-        validator.validateAnswer("10 * 2 = ?", "15", "20");
-        validator.validateAnswer("12 / 4 = ?", "3", "3");
+        const validator = new AnswerValidator(history, score);
+        validator.validateAnswer("5 + 3 = ?", "8", "8", true);
+        validator.validateAnswer("10 * 2 = ?", "15", "20", true);
+        validator.validateAnswer("12 / 4 = ?", "3", "3", true);
 
         const results = history.getResults();
 
@@ -104,8 +142,30 @@ describe("AnswerValidator", () => {
         expect(results.map(result => result.correctAnswer))
             .toEqual(["8" , "20" , "3"]);
 
-        
     });
+
+    //TEST 7 rewards should not be granted for intermediate step
+    it("Should Not Reward Correct Intermediate Step", () => {
+    const history = new AnswerHistory();
+
+    const score = {
+        answerIncorrect: vi.fn(),
+        roomSolved: vi.fn().mockReturnValue(100)
+    };
+
+    const validator = new AnswerValidator(history, score);
+
+    const result = validator.validateAnswer(
+        "3x + 2 = 17",
+        "3x = 15",
+        "3x = 15",
+        false
+    );
+
+    expect(result).toBe(true);
+    expect(score.roomSolved).not.toHaveBeenCalled();
+    expect(score.answerIncorrect).not.toHaveBeenCalled();
+});
 
 
 
