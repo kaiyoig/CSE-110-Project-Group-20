@@ -22,11 +22,11 @@
   },
   "homepage": "https://github.com/kaiyoig/CSE-110-Project-Group-20#readme",
   "dependencies": {
-    "konva": "^10.9.0",
-    "vitest": "^5.0.5"
+    "konva": "^10.9.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }
