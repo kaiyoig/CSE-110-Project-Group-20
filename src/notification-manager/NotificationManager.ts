@@ -13,10 +13,32 @@ export class NotificationManager {
     if (!set) { this.handlers.set(type, (set = new Set())); }
 
     set.add(handler);
+
     return () => set.delete(handler);
   }
 
   send(event: Event): void {
-    // TODO
+    this.pending.push(event);
+    if (this.dispatching) { return; }
+    this.dispatching = true;
+
+    try {
+      while (this.pending.length > 0) {
+        // deliver pending.shift
+        const currentDispatchEvent = this.pending.shift()!;
+        const set = this.handlers.get(event.eventType);
+        if (!set) continue;
+
+        for (const handler of [...set]) {
+          try {
+            handler(event);
+          } catch (err) {
+            console.error(`Handler for "${event.eventType}" threw: `, err);
+          }
+        }
+      }
+    } finally {
+      this.dispatching = false;
+    }
   }
 }
