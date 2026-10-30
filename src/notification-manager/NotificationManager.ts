@@ -1,11 +1,11 @@
-import { Event, EventType } from "./Event"
+import { GameEvent, EventType } from "./GameEvent";
 
-export type Handler = (event: Event) => void;
+export type Handler = (event: GameEvent) => void;
 
 export class NotificationManager {
   private handlers = new Map<EventType, Set<Handler>>();
   
-  private pending: Event[] = []; // list of pending events to handle
+  private pending: GameEvent[] = []; // list of pending events to handle
   private dispatching = false; // tracks whether send is already handling events
 
   subscribe(type: EventType, handler: Handler): () => void {
@@ -17,7 +17,7 @@ export class NotificationManager {
     return () => set.delete(handler);
   }
 
-  send(event: Event): void {
+  send(event: GameEvent): void {
     this.pending.push(event);
     if (this.dispatching) { return; }
     this.dispatching = true;
@@ -26,14 +26,14 @@ export class NotificationManager {
       while (this.pending.length > 0) {
         // deliver pending.shift
         const currentDispatchEvent = this.pending.shift()!;
-        const set = this.handlers.get(event.eventType);
+        const set = this.handlers.get(currentDispatchEvent.eventType);
         if (!set) continue;
 
         for (const handler of [...set]) {
           try {
-            handler(event);
+            handler(currentDispatchEvent);
           } catch (err) {
-            console.error(`Handler for "${event.eventType}" threw: `, err);
+            console.error(`Handler for "${currentDispatchEvent.eventType}" threw: `, err);
           }
         }
       }

@@ -6,7 +6,7 @@ export enum EventType {
   GameOver = "gameOver"
 }
 
-export interface Event {
+export interface GameEvent {
   eventType: EventType;
   additionalInfo?: string;
 }
