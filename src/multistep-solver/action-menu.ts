@@ -17,6 +17,8 @@ class ActionMenu extends Konva.Group {
   public onMultiplicationClicked?: () => void
   public onDivisionClicked?: () => void
 
+  private quadrantBackgrounds: Konva.Rect[] = []
+
   private static readonly BACKGROUND_COLOR = '#eeeeee'
   private static readonly HOVER_COLOR = '#c7d2fe'
   private static readonly LABEL_COLOR = '#000000'
@@ -79,6 +81,7 @@ class ActionMenu extends Konva.Group {
 
       area.add(background)
       area.add(label)
+      this.quadrantBackgrounds.push(background)
 
       area.on('mouseenter', () => background.fill(ActionMenu.HOVER_COLOR))
       area.on('mouseleave', () => background.fill(ActionMenu.BACKGROUND_COLOR))
@@ -105,6 +108,9 @@ class ActionMenu extends Konva.Group {
 
   /** Hide the menu and stop it from receiving pointer events. */
   public hide(): this {
+    for (const background of this.quadrantBackgrounds) {
+      background.fill(ActionMenu.BACKGROUND_COLOR)
+    }
     this.visible(false)
     this.listening(false)
     return this
