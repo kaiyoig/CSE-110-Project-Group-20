@@ -253,10 +253,16 @@ class MultistepSolverView {
     this.equalSign.x(lastBlock.x() + lastBlock.width());
 
     this.equalSign.visible(true);
+  }
 
+  showDropzone() {
     this.dropZone.x(this.equalSign.x());
     this.dropZone.y(this.equalSign.y() + this.equalSign.height() + 10);
     this.dropZone.visible(true);
+  }
+
+  hideDropzone() {
+    this.dropZone.visible(false);
   }
 
   clearDropzone() {
