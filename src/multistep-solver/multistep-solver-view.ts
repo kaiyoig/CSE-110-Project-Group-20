@@ -46,13 +46,14 @@ class MultistepSolverView {
       clone.setAttr('clone', true);
 
       clone.on('dragend.workspace touchend.workspace', _ => {
-        if (!this.onTargetDropped) {
+        if (!this.onTargetDropped || this.dropZone.listening() == false) {
           clone.destroy();
           return;
         }
 
         let blockRect = clone.getClientRect();
         let dropZoneRect = this.dropZone.getClientRect();
+
         if (this.rectIntersectsRect(blockRect, dropZoneRect)) {
           let leftIndex = this.leftSide.indexOf(block);
           let rightIndex = this.rightSide.indexOf(block);
@@ -259,10 +260,12 @@ class MultistepSolverView {
     this.dropZone.x(this.equalSign.x());
     this.dropZone.y(this.equalSign.y() + this.equalSign.height() + 10);
     this.dropZone.visible(true);
+    this.dropZone.listening(true);
   }
 
   hideDropzone() {
     this.dropZone.visible(false);
+    this.dropZone.listening(false);
   }
 
   clearDropzone() {
