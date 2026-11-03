@@ -10,7 +10,8 @@ import { COLORS, createBackground, createButton, createText } from "./theme";
 
 const STATS = { x: 120, y: 230, width: 560, rowHeight: 48 };
 const BOARD = { x: 760, y: 230, width: 560, rowHeight: 40 };
-const NAME_BOX = { x: 330, y: 640, width: 300, height: 50 };
+/** The name box's TextInput, centered at (x, y), under the stats column. */
+const NAME_BOX = { x: STATS.x + 150, y: 660, width: 300, height: 50 };
 
 /**
  * Shown after a Heist ends: the outcome, the results, the leaderboard for
@@ -73,12 +74,12 @@ export class EndScreen implements EndScreenContract {
 
     this.nameBox = new Konva.Group({ visible: false, name: "name-box" });
     this.nameBox.add(createText({
-      x: STATS.x, y: NAME_BOX.y - 50, width: STATS.width,
+      x: STATS.x, y: NAME_BOX.y - 70, width: STATS.width,
       text: "Enter your name to save your score",
       fontSize: 24,
     }));
     this.nameBox.add(createButton({
-      x: NAME_BOX.x + NAME_BOX.width / 2 + 24, y: NAME_BOX.y - 22,
+      x: NAME_BOX.x + NAME_BOX.width / 2 + 24, y: NAME_BOX.y - NAME_BOX.height / 2 + 2,
       width: 140, height: 43,
       label: "Save",
       name: "save",
