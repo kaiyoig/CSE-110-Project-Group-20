@@ -1,13 +1,14 @@
 import { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
 import { getQuestion } from "../questions/QuestionGenerator";
+import type { StepAnswer } from "../questions/Question";
 import { ScoreController, ScoreModel } from "../score";
 import type { Difficulty, RoomKind, ScoreSnapshot } from "../score";
 import { MapController } from "../map/MapController";
 import type { SwitchMapScreen } from "../map/MapController";
 import { Room } from "../map/Room";
 import { AnswerHistory } from "../validation/AnswerHistory";
-import type { ProblemResult } from "../validation/AnswerHistory";
+import type { AnswerRecord } from "../validation/AnswerHistory";
 import { AnswerValidator } from "../validation/AnswerValidator";
 import type { ScreenController } from "../screens/ScreenController";
 import type { MapScreen, RoomScreen, Unsubscribe } from "../screens/contracts";
@@ -17,7 +18,7 @@ export type HeistOutcome = "escaped" | "caught";
 export interface HeistResult {
   outcome: HeistOutcome;
   snapshot: ScoreSnapshot;
-  history: ProblemResult[];
+  history: AnswerRecord[];
 }
 
 export interface GameDeps {
@@ -36,13 +37,13 @@ interface RoomLayout {
 
 export const VAULT_ID = "vault";
 
-/** Placeholder layout. The map owner provides the real one later. */
+/** The bank's Rooms, from the map layout in #30. */
 export const ROOM_LAYOUT: readonly RoomLayout[] = [
-  { id: "room-1", name: "Room 1", kind: "main", prerequisites: [] },
-  { id: "room-2", name: "Room 2", kind: "main", prerequisites: [] },
-  { id: "room-3", name: "Room 3", kind: "main", prerequisites: [] },
-  { id: "bonus-1", name: "Bonus Room", kind: "bonus", prerequisites: [] },
-  { id: VAULT_ID, name: "Vault", kind: "main", prerequisites: ["room-1", "room-2", "room-3"] },
+  { id: "room_a", name: "Room A", kind: "main", prerequisites: [] },
+  { id: "room_b", name: "Room B", kind: "main", prerequisites: [] },
+  { id: "room_c", name: "Room C", kind: "main", prerequisites: ["room_a", "room_b"] },
+  { id: "room_X", name: "Room X", kind: "bonus", prerequisites: [] },
+  { id: VAULT_ID, name: "Vault", kind: "main", prerequisites: ["room_c"] },
 ];
 
 /**
@@ -92,7 +93,8 @@ export class Game {
   }
 
   start(): void {
-    this.mapScreen.setRooms(this.rooms);
+    this.mapScreen.setRooms(this.rooms, this.map.solvedRooms);
+    this.updateHud();
     this.screens.show("map");
     this.notifications.send({ eventType: EventType.GameStart });
   }
@@ -112,15 +114,17 @@ export class Game {
   }
 
   private wire(): void {
-    // Screen → Game. Screens are app-scoped, so every callback checks `ended`
-    // in case the screen's onX can't be unsubscribed.
-    this.track(this.mapScreen.onRoomClick((id) => {
-      if (!this.ended) this.map.clickRoomButton(id);
-    }));
-    this.track(this.roomScreen.onExit(() => {
-      if (!this.ended) this.map.returnToMap();
-    }));
-    this.track(this.roomScreen.onAnswer((answer) => this.handleAnswer(answer)));
+    // Screen → Game. Every callback also checks `ended` as a second line of
+    // defence, since the screens outlive the Heist.
+    this.cleanups.push(
+      this.mapScreen.onRoomClick((id) => {
+        if (!this.ended) this.map.clickRoomButton(id); // map calls score.enterRoom()
+      }),
+      this.roomScreen.onExit(() => {
+        if (!this.ended) this.map.returnToMap(); // map calls score.returnToMap()
+      }),
+      this.roomScreen.onAnswer((answer) => this.handleAnswer(answer)),
+    );
 
     // Map → screens.
     this.map.onAccessDenied = (payload) => {
@@ -129,33 +133,39 @@ export class Game {
     this.map.onScreenChange = (event) => this.handleScreenChange(event);
 
     // Score → HUD / ending. ScoreController.dispose() also drops these.
-    this.track(this.score.onChange((m) => {
-      if (!this.ended) this.roomScreen.setHud(m.getTimeRemainingMs(), m.getMoney());
-    }));
-    this.track(this.score.onTimeUp(() => {
-      if (this.answering) this.pendingOutcome = "caught";
-      else this.end("caught");
-    }));
+    this.cleanups.push(
+      this.score.onChange(() => {
+        if (!this.ended) this.updateHud();
+      }),
+      this.score.onTimeUp(() => {
+        if (this.answering) this.pendingOutcome = "caught";
+        else this.end("caught");
+      }),
+    );
   }
 
-  private track(unsubscribe: Unsubscribe | void): void {
-    if (unsubscribe) this.cleanups.push(unsubscribe);
+  private updateHud(): void {
+    const m = this.score.getModel();
+    const remaining = m.getTimeRemainingMs();
+    const limit = m.getTimeLimitMs();
+    const money = m.getMoney();
+    this.mapScreen.setHud(remaining, limit, money);
+    this.roomScreen.setHud(remaining, limit, money);
   }
 
   private handleScreenChange(event: SwitchMapScreen): void {
     if (this.ended) return;
     if (event.room) {
-      const model = this.score.getModel();
       this.roomScreen.setQuestion(event.room.question, event.room.name);
-      this.roomScreen.setHud(model.getTimeRemainingMs(), model.getMoney());
+      this.updateHud();
       this.screens.show("room");
     } else if (event.screen === "map") {
-      this.mapScreen.setRooms(this.rooms);
+      this.mapScreen.setRooms(this.rooms, this.map.solvedRooms);
       this.screens.show("map");
     }
   }
 
-  private handleAnswer(answer: string): void {
+  private handleAnswer(answer: StepAnswer): void {
     const room = this.map.activeRoom;
     if (this.ended || !room) return;
 
@@ -170,11 +180,13 @@ export class Game {
       this.answering = false;
     }
 
-    if (this.pendingOutcome) {
-      this.end(this.pendingOutcome);
+    // The clock can also hit zero between ticks; a solve is then rejected by
+    // the score, so the Heist ends Caught rather than Escaped.
+    if (this.pendingOutcome || this.score.getModel().isTimeUp()) {
+      this.end("caught");
       return;
     }
-    if (!correct) return; // stay in the Room
+    if (!correct || !answer.isLastStep) return; // stay in the Room
 
     if (room.id === VAULT_ID) {
       this.map.solveVault(VAULT_ID);
