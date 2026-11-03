@@ -177,6 +177,11 @@ class MultistepSolverModel {
     this.pushSide(this.rightSide, term);
   }
 
+  reset() {
+    this.leftSide.splice(0, this.leftSide.length);
+    this.rightSide.splice(0, this.rightSide.length);
+  }
+
   moveLeftTerm(index: number) {
     this.moveFromSide(this.leftSide, index, this.rightSide);
     this.cleanSide(this.leftSide);
@@ -307,6 +312,13 @@ class MultistepSolverModel {
     let index = 0;
     let sign = 1;
 
+    // A leading sign is unary. It is not an operation between two values,
+    // so consume it before parsing the first expression term.
+    if (side[0] === '+' || side[0] === '-') {
+      sign = side[0] === '+' ? 1 : -1;
+      index = 1;
+    }
+
     while (index < side.length) {
       const first = side[index];
       if (typeof first === 'string') {
@@ -319,7 +331,7 @@ class MultistepSolverModel {
       // A value after + or - gets its sign from that operator. The model also
       // flips positive when a value is moved across the equals sign, so using
       // the flag here would turn `8 - 3` into `8 - -3`.
-      let valueSign = start === 0 && !first.positive ? -sign : sign;
+      let valueSign = start === 0 && index === 1 && !first.positive ? -sign : sign;
       index++;
 
       while (index < side.length) {
