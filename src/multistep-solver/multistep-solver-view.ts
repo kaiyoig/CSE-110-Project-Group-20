@@ -5,7 +5,17 @@ import MultistepSolverModel from './multistep-solver-model'
 
 type Block = Konva.Group
 
-const BLOCK_SIZE = 24;
+interface DisplayTerm {
+  term: Term
+  modelIndex: number
+}
+
+export interface MultistepSolverViewOptions {
+  panelWidth: number
+  panelHeight: number
+  blockSize?: number
+  panelColor?: string
+}
 
 class MultistepSolverView {
   private leftSide: Array<Block> = []
@@ -14,7 +24,13 @@ class MultistepSolverView {
   private stage: Konva.Stage
   private layer: Konva.Layer
   private view: Konva.Group
-  private dropZone: Konva.Rect
+  private panel: Konva.Rect
+  private dropZone: Konva.Group
+  private dropZoneText: Konva.Text
+
+  private readonly panelWidth: number
+  private readonly panelHeight: number
+  private readonly blockSize: number
 
   private blockInDrop: Block | null = null
 
@@ -22,6 +38,7 @@ class MultistepSolverView {
 
   private OPERATOR_BACKGROUND = "#ffde80";
   private VALUE_BACKGROUND = "#4ade80";
+  private readonly DROP_ZONE_SIZE = 100
 
   public onTargetDropped?: (index: number, left: boolean) => void
 
@@ -65,11 +82,20 @@ class MultistepSolverView {
           }
 
           let isLeftSide = leftIndex >= 0;
-          let index = isLeftSide ? leftIndex : rightIndex;
+          let index = block.getAttr('modelIndex') as number;
+          if (index === undefined) {
+            index = isLeftSide ? leftIndex : rightIndex;
+          }
 
           this.clearDropzone();
 
           this.blockInDrop = clone;
+          const dropZoneRect = this.dropZone.getClientRect();
+          clone.position({
+            x: dropZoneRect.x + (dropZoneRect.width - clone.width()) / 2,
+            y: dropZoneRect.y + (dropZoneRect.height - clone.height()) / 2,
+          });
+          this.dropZoneText.visible(false);
 
           this.onTargetDropped(index, isLeftSide);
         } else {
@@ -93,15 +119,15 @@ class MultistepSolverView {
     const group = new Konva.Group({
       x,
       y,
-      width: BLOCK_SIZE,
-      height: BLOCK_SIZE,
+      width: this.blockSize,
+      height: this.blockSize,
     });
 
     group.add(
       new Konva.Rect({
         name: "background",
-        width: BLOCK_SIZE,
-        height: BLOCK_SIZE,
+        width: this.blockSize,
+        height: this.blockSize,
         fill: color,
         cornerRadius: 6,
       })
@@ -110,12 +136,12 @@ class MultistepSolverView {
     group.add(
       new Konva.Text({
         name: "text",
-        width: BLOCK_SIZE,
-        height: BLOCK_SIZE,
+        width: this.blockSize,
+        height: this.blockSize,
         text: text,
         align: "center",
         verticalAlign: "middle",
-        fontSize: 16,
+        fontSize: Math.floor(this.blockSize * 2 / 3),
         fill: "black",
       })
     );
@@ -123,7 +149,8 @@ class MultistepSolverView {
     return group;
   }
 
-  private createTermBlock(x: number, y: number, term: Term): Konva.Group {
+  private createTermBlock(x: number, y: number, displayTerm: DisplayTerm): Konva.Group {
+    let term = displayTerm.term;
     let isOperator = typeof term == "string";
     let fillColor = isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND;
 
@@ -132,6 +159,7 @@ class MultistepSolverView {
     let group = this.createBlock(x, y, text, fillColor);
 
     group.setAttr('term', term);
+    group.setAttr('modelIndex', displayTerm.modelIndex);
 
     if (!isOperator) {
       this.makePaletteBlock(group);
@@ -141,19 +169,21 @@ class MultistepSolverView {
   }
 
   // TODO: Change y position
-  private addBlock(side: Array<Block>, term: Term) {
+  private addBlock(side: Array<Block>, displayTerm: DisplayTerm) {
     let previousBlock = side.at(side.length - 1);
     if (!previousBlock) {
-      side.push(this.createTermBlock(0, 100, term));
+      side.push(this.createTermBlock(0, 100, displayTerm));
       return;
     }
     let x = previousBlock.x();
     let width = previousBlock.width();
-    side.push(this.createTermBlock(x + width, 100, term));
+    side.push(this.createTermBlock(x + width, 100, displayTerm));
   }
 
-  private updateBlock(block: Block, term: Term) {
+  private updateBlock(block: Block, displayTerm: DisplayTerm) {
+    let term = displayTerm.term;
     let prevTerm: Term = block.getAttr('term');
+    block.setAttr('modelIndex', displayTerm.modelIndex);
     if (prevTerm == term) {
       return;
     }
@@ -178,23 +208,42 @@ class MultistepSolverView {
     background.fill(isTermOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
   }
 
+  private getDisplayTerms(terms: Array<Term>): Array<DisplayTerm> {
+    let displayTerms: Array<DisplayTerm> = [];
+
+    for (let i = 0; i < terms.length; ++i) {
+      let term = terms.at(i);
+      if (!term) continue;
+
+      const isZero = typeof term !== 'string' && term.constant && term.term.split('/')[0] === '0';
+      if (i === 0 && typeof term !== 'string' && !term.positive && !isZero) {
+        displayTerms.push({ term: '-', modelIndex: i });
+      }
+      displayTerms.push({ term, modelIndex: i });
+    }
+
+    return displayTerms;
+  }
+
   private updateSide(side: Array<Block>, terms: Array<Term>) {
-    if (terms.length < side.length) {
-      let extraBlocks = side.splice(terms.length - 1);
+    let displayTerms = this.getDisplayTerms(terms);
+
+    if (displayTerms.length < side.length) {
+      let extraBlocks = side.splice(displayTerms.length);
       for (let extraBlock of extraBlocks) {
         extraBlock.destroy();
       }
     }
 
-    for (let i = 0; i < terms.length; ++i) {
-      let modelTerm = terms.at(i);
-      if (!modelTerm)
+    for (let i = 0; i < displayTerms.length; ++i) {
+      let displayTerm = displayTerms.at(i);
+      if (!displayTerm)
         throw Error("Multistep Solver Model has undefined term in the middle of the array!");
 
       let currentBlock = side.at(i);
 
       if (!currentBlock) {
-        this.addBlock(side, modelTerm);
+        this.addBlock(side, displayTerm);
         let newBlock = side.at(side.length - 1);
 
         if (newBlock) {
@@ -204,11 +253,58 @@ class MultistepSolverView {
         continue;
       }
 
-      this.updateBlock(currentBlock, modelTerm);
+      this.updateBlock(currentBlock, displayTerm);
     }
   }
 
-  constructor(stage: Konva.Stage, layer: Konva.Layer) {
+  private layoutEquation() {
+    const equationBlockCount = this.leftSide.length + 1 + this.rightSide.length
+    const equationWidth = equationBlockCount * this.blockSize
+    const xStart = (this.panelWidth - equationWidth) / 2
+    const y = this.panelHeight * 0.25 - this.blockSize / 2
+
+    for (let i = 0; i < this.leftSide.length; ++i) {
+      this.leftSide[i].position({
+        x: xStart + i * this.blockSize,
+        y,
+      })
+    }
+
+    this.equalSign.position({
+      x: xStart + this.leftSide.length * this.blockSize,
+      y,
+    })
+
+    for (let i = 0; i < this.rightSide.length; ++i) {
+      this.rightSide[i].position({
+        x: xStart + (this.leftSide.length + 1 + i) * this.blockSize,
+        y,
+      })
+    }
+  }
+
+  private centerDropzone() {
+    this.dropZone.position({
+      x: (this.panelWidth - this.DROP_ZONE_SIZE) / 2,
+      y: (this.panelHeight - this.DROP_ZONE_SIZE) / 2,
+    })
+  }
+
+  constructor(stage: Konva.Stage, layer: Konva.Layer, options: MultistepSolverViewOptions) {
+    if (!Number.isFinite(options.panelWidth) || options.panelWidth <= 0) {
+      throw Error('MultistepSolverView panelWidth must be a positive number.')
+    }
+    if (!Number.isFinite(options.panelHeight) || options.panelHeight <= 0) {
+      throw Error('MultistepSolverView panelHeight must be a positive number.')
+    }
+
+    this.panelWidth = options.panelWidth
+    this.panelHeight = options.panelHeight
+    this.blockSize = options.blockSize ?? 32
+    if (!Number.isFinite(this.blockSize) || this.blockSize <= 0) {
+      throw Error('MultistepSolverView blockSize must be a positive number.')
+    }
+
     this.view = new Konva.Group({});
 
     this.stage = stage;
@@ -216,18 +312,57 @@ class MultistepSolverView {
 
     this.layer.add(this.view);
 
-    this.dropZone = new Konva.Rect({
-      width: 100,
-      height: 100,
-      fill: "#eeeeee",
-      cornerRadius: 20
+    this.panel = new Konva.Rect({
+      width: this.panelWidth,
+      height: this.panelHeight,
+      fill: options.panelColor ?? '#4b5563',
+      cornerRadius: 20,
     });
+    this.view.add(this.panel);
+
+    this.dropZone = new Konva.Group({
+      width: this.DROP_ZONE_SIZE,
+      height: this.DROP_ZONE_SIZE,
+    });
+    this.dropZoneText = new Konva.Text({
+      width: this.DROP_ZONE_SIZE,
+      height: this.DROP_ZONE_SIZE,
+      text: "Drag term here",
+      align: "center",
+      verticalAlign: "middle",
+      fontSize: 14,
+      fill: "#4b5563",
+      listening: false,
+    });
+
+    this.dropZone.add(
+      new Konva.Rect({
+        width: this.DROP_ZONE_SIZE,
+        height: this.DROP_ZONE_SIZE,
+        fill: "#eeeeee",
+        cornerRadius: 20,
+      }),
+      this.dropZoneText,
+    );
     this.dropZone.visible(false);
     this.view.add(this.dropZone);
 
-    this.equalSign = this.createBlock(0, 100, "=", "#bbcccc");
+    this.equalSign = this.createBlock(0, 0, "=", "#bbcccc");
     this.equalSign.visible(false);
     this.view.add(this.equalSign);
+
+    this.centerDropzone();
+  }
+
+  setPosition(x: number, y: number) {
+    this.view.position({
+      x: x - this.panelWidth / 2,
+      y: y - this.panelHeight / 2,
+    });
+  }
+
+  panelColor(color: string) {
+    this.panel.fill(color);
   }
 
   update(model: MultistepSolverModel) {
@@ -242,23 +377,13 @@ class MultistepSolverView {
     this.updateSide(this.leftSide, leftSide);
     this.updateSide(this.rightSide, rightSide);
 
-    let xOffset = (this.leftSide.length + 1) * BLOCK_SIZE;
-    for (let i = 0; i < this.rightSide.length; ++i) {
-      let newX = xOffset + (i * BLOCK_SIZE);
-      this.rightSide.at(i)?.x(newX);
-    }
-
-    let lastBlock = this.leftSide.at(this.leftSide.length - 1);
-    if (!lastBlock) throw Error("Updating equation ended up with empty left side!");
-
-    this.equalSign.x(lastBlock.x() + lastBlock.width());
+    this.layoutEquation();
 
     this.equalSign.visible(true);
   }
 
   showDropzone() {
-    this.dropZone.x(this.equalSign.x());
-    this.dropZone.y(this.equalSign.y() + this.equalSign.height() + 10);
+    this.centerDropzone();
     this.dropZone.visible(true);
     this.dropZone.listening(true);
   }
@@ -269,9 +394,11 @@ class MultistepSolverView {
   }
 
   clearDropzone() {
-    if (!this.blockInDrop) return;
-    this.blockInDrop.destroy();
-    this.blockInDrop = null;
+    if (this.blockInDrop) {
+      this.blockInDrop.destroy();
+      this.blockInDrop = null;
+    }
+    this.dropZoneText.visible(true);
   }
 }
 
