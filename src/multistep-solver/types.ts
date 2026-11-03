@@ -11,7 +11,7 @@ export type Term = TermValue | TermOp;
 export function constantTerm(value: number): Term {
   return {
     term: `${value}`,
-    positive: Math.sign(value) > 0,
+    positive: value === 0 || Math.sign(value) > 0,
     constant: true
   };
 }
