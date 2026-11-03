@@ -228,7 +228,7 @@ class MultistepSolverController {
     const isVariable = (side: Array<unknown>): boolean => {
       if (side.length !== 1) return false
       const term = side[0] as TermValue
-      return typeof term !== 'string' && !term.constant
+      return typeof term !== 'string' && !term.constant && term.positive
     }
     const isConstant = (side: Array<unknown>): boolean => {
       if (side.length !== 1) return false
@@ -243,7 +243,7 @@ class MultistepSolverController {
     const isVariable = (side: Array<unknown>): boolean => {
       if (side.length !== 1) return false
       const term = side[0] as TermValue
-      return typeof term !== 'string' && !term.constant
+      return typeof term !== 'string' && !term.constant && term.positive
     }
     const isConstant = (side: Array<unknown>): boolean => {
       if (side.length !== 1) return false

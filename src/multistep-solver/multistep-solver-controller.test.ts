@@ -77,7 +77,6 @@ describe('MultistepSolverController', () => {
 
   it.each([
     'x = 5',
-    '-x = -5',
     '5 = x',
   ])('starts solved equations in Finished state: %s', equation => {
     const controller = new MultistepSolverController(new MultistepSolverModel(), fakeView())
@@ -85,5 +84,13 @@ describe('MultistepSolverController', () => {
     controller.setEquation(equation)
 
     expect(controller.getState()).toBe('Finished')
+  })
+
+  it('does not treat a negative variable equation as solved', () => {
+    const controller = new MultistepSolverController(new MultistepSolverModel(), fakeView())
+
+    controller.setEquation('-x = -5')
+
+    expect(controller.getState()).not.toBe('Finished')
   })
 })
