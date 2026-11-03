@@ -494,6 +494,12 @@ class MultistepSolverView {
     this.dropZone.listening(false);
   }
 
+  /** Removes every node the view added to the layer. */
+  destroy(): void {
+    this.clearDropzone();
+    this.view.destroy();
+  }
+
   /** Removes a dropped clone and restores the drop-zone message. */
   clearDropzone(): void {
     if (this.blockInDrop) {

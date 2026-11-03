@@ -168,6 +168,13 @@ class TextInput extends Konva.Group {
     if (this.visible()) this.input.style.display = 'block'
   }
 
+  /** Removes the HTML input and its placeholder style, then destroys the Konva group. @returns This input. */
+  public override destroy(): this {
+    this.input.remove()
+    document.getElementById(this.ghostTextClass)?.remove()
+    return super.destroy()
+  }
+
   private submitText(): void {
     this.onTextEntered?.(this.text())
   }
