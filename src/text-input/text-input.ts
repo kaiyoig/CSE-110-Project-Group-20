@@ -95,6 +95,10 @@ class TextInput extends Konva.Group {
     return this.input.value
   }
 
+  public clear(): void {
+    this.input.value = ''
+  }
+
   public textColor(color: string): void {
     this.input.style.color = color
   }
