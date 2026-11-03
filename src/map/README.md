@@ -1,50 +1,66 @@
-# Bank Map Component (Calista)
+# Map module
 
-Everything lives in `src/map/` (or run isolated via `test-map.html`). Import from the folder:
+Rooms, prerequisites and which Rooms are Solved. The floor-plan drawing lives in
+`src/screens/MapScreen.ts` (from #30); this folder has no UI.
+
+| File | What |
+|---|---|
+| `Room.ts` | A Room: id, name, its Question, kind (`"main"` or `"bonus"`) and prerequisites. |
+| `MapController.ts` | Tracks the active Room and the Solved Rooms, gates entry, and starts/pauses the clock. |
+
+## API
 
 ```ts
-import { mountGameMap } from "./map/MapDemo";
-import { MapController } from "./map/MapController";
-import { Room } from "./map/Room";
+const room = new Room({
+  id: "room_c",
+  name: "Room C",
+  question,                          // from getQuestion(difficulty), generated once per Heist
+  kind: "main",                      // default; "bonus" for a Bonus Room
+  prerequisites: ["room_a", "room_b"],
+});
+room.isAccessible(solvedRoomIds);           // true when every prerequisite is Solved
+room.getMissingPrerequisites(solvedRoomIds); // the prerequisite ids still to Solve
+
+const map = new MapController(score);  // the Heist's ScoreController
+map.registerRoom(room);
+map.clickRoomButton(id);  // enters the Room (and calls score.enterRoom()) if allowed; returns whether it did
+map.returnToMap();        // leaves the Room and calls score.returnToMap()
+map.solveRoom(id);        // marks a Room Solved
+map.solveVault();         // marks the Vault Solved (ending the Heist is up to Game)
+map.solvedRooms;          // ReadonlySet<string> of Solved ids
+map.activeRoom;           // the Room the player is in, or null
+map.onScreenChange = (e) => { /* e.room set: entered it; e.screen === "map": back on the map */ };
+map.onAccessDenied = (p) => { /* p.missingPrerequisiteNames etc. */ };
 ```
 
-## File Overview
+Solved state lives only in MapController, never on Room.
 
-| File | Description |
-|---|---|
-| Room.ts| Room entity definition and prerequisite validation logic |
-| MapController.ts | State machine tracking completedRooms, active screens, and click gating |
-| MapScreenView.ts | Konva-based floor plan canvas, HUD indicators, and tooltip modals |
-| MapDemo.ts | Assembles default rooms, links controller callbacks to the view, and exports mountGameMap |
-| test-map.html | Independent HTML entry point for manual UI verification |
-| test-map-demo.ts | Bootstraps test-map.html and provides mock prompts for solving rooms and vault testing |
+## How Game wires it
 
-## Usage Guidance
+`src/game/Game.ts` builds the Rooms (#30's layout, below) and one MapController per Heist:
 
-| Component | When | Call |
+| Source | → | Target |
 |---|---|---|
-| **map** | Player clicks an unlocked room button | `score.enterRoom()` |
-| **map** | Player goes back to the map | `score.returnToMap()`, then `refreshMap()` |
-| **map** | Vault puzzle solved | `controller.completeVault("vault")`, `showEndScreen(score.getModel().snapshot())` |
-| **room/puzzle** | Room puzzle is finished and solved | `controller.completeRoom(roomId)`, then `controller.returnToMap()`, then `refreshMap()` |
-| **HUD** | Sync remaining heist time / balance on the map | `map.setProgress(ratio)` (0–1), `map.setMoney(amount)` |
-| **menu/navigation** | Clean up Konva stage on game reset or exit | `destroy()` |
+| `mapScreen.onRoomClick(id)` | → | `map.clickRoomButton(id)` |
+| `map.onAccessDenied(p)` | → | `mapScreen.showAccessDenied(p)` |
+| `map.onScreenChange` with a Room | → | `roomScreen.setQuestion(room.question, room.name)`, show the Room Screen |
+| `map.onScreenChange` back to `"map"` | → | `mapScreen.setRooms(rooms, map.solvedRooms)`, show the Map Screen |
+| `roomScreen.onExit()` | → | `map.returnToMap()` |
+| correct last Step in a Room | → | `map.solveRoom(id)`, then `map.returnToMap()` |
+| correct last Step in the Vault | → | `map.solveVault()`, then Game ends the Heist as Escaped |
+
+| id | name | kind | prerequisites |
+|---|---|---|---|
+| `room_a` | Room A | main | none |
+| `room_b` | Room B | main | none |
+| `room_c` | Room C | main | `room_a`, `room_b` |
+| `room_X` | Room X | bonus | none |
+| `vault` | Vault | main | `room_c` |
 
 ## Things to watch out for
 
-- **Case-sensitive room IDs:** Always match exact casing: `"room_a"`, `"room_b"`, `"room_c"`, `"room_X"`, `"vault"`. 
-- **Rooms cannot be re-entered once solved:** When a room is completed, its button becomes non-interactive. Calling `clickRoomButton(roomId)` on a completed room returns `false`.
-- **Call `refreshMap()` after room completions:** This re-evaluates prerequisite locks and updates floor colors/icons on the Konva stage.
-- **Locked rooms show popup tooltips automatically:** Clicking a locked room blocks navigation and renders a tooltip explaining which rooms must be solved first (e.g., *"Complete Room A to unlock Room C"*).
-- **Cleanup when unmounting:** Always invoke `destroy()` when exiting back to the main menu to disconnect the `ResizeObserver` and remove the Konva stage listeners.
+- **Room ids are case-sensitive**: `"room_a"`, `"room_b"`, `"room_c"`, `"room_X"`, `"vault"`. MapScreen's floor plan is keyed by these ids.
+- **A Solved Room can't be entered again**: `clickRoomButton` returns `false` and fires nothing.
+- **A locked Room fires `onAccessDenied`**, not `onScreenChange`, and the clock doesn't start.
 
-## Testing & Sandbox
-
-```bash
-# Run unit tests (prerequisites, controller state, vault completion)
-npm test
-
-# Run isolated UI sandbox in browser 
-npm run dev
-# Visit: http://localhost:5173/test-map.html
-```
+Run the tests: `npm test`
