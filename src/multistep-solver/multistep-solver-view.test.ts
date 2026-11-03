@@ -208,4 +208,20 @@ describe('MultistepSolverView', () => {
     expect(internal.leftSide[3].getAttr('term')).toBe('-')
     expect(internal.leftSide[3].getAttr('negativeSign')).not.toBe(true)
   })
+
+  it('renders negative multiplicative constants in one parenthesized block', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    model.addLeft(variableTerm('x', true))
+    model.addLeft('*')
+    model.addLeft(constantTerm(5))
+    model.addLeft('*')
+    model.addLeft({ term: '3', positive: false, constant: true })
+    model.addRight(constantTerm(1))
+
+    view.update(model)
+
+    const internal = view as any
+    expect(internal.leftSide[4].findOne('.text').text()).toBe('(-3)')
+  })
 })

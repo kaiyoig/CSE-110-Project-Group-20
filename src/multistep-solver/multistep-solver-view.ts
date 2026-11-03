@@ -9,6 +9,7 @@ interface DisplayTerm {
   term: Term
   modelIndex: number
   negativeSign?: boolean
+  displayText?: string
 }
 
 export interface MultistepSolverViewOptions {
@@ -170,7 +171,7 @@ class MultistepSolverView {
         text: text,
         align: "center",
         verticalAlign: "middle",
-        fontSize: Math.floor(this.blockSize * 2 / 3),
+        fontSize: Math.floor(this.blockSize * 2 / 4),
         fill: "black",
       })
     );
@@ -185,7 +186,7 @@ class MultistepSolverView {
       ? this.VALUE_BACKGROUND
       : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND;
 
-    let text = isOperator ? (term as string) : (term as TermValue).term;
+    let text = displayTerm.displayText ?? (isOperator ? (term as string) : (term as TermValue).term);
 
     let group = this.createBlock(x, y, text, fillColor);
 
@@ -249,7 +250,7 @@ class MultistepSolverView {
       throw Error("Could not update block because text or background doesn't exist in the group.");
     }
 
-    text.text(isOperator ? term as string : (term as TermValue).term);
+    text.text(displayTerm.displayText ?? (isOperator ? term as string : (term as TermValue).term));
     background.fill(isNegativeSign
       ? this.VALUE_BACKGROUND
       : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
@@ -299,7 +300,16 @@ class MultistepSolverView {
           modelIndex: i,
         });
       }
-      displayTerms.push({ term, modelIndex: i });
+      const isNegativeFactor = i > 0 &&
+        typeof term !== 'string' &&
+        !term.positive &&
+        (terms[i - 1] === '*' || terms[i - 1] === '/') &&
+        term.constant;
+      displayTerms.push({
+        term,
+        modelIndex: i,
+        displayText: isNegativeFactor ? `(-${term.term})` : undefined,
+      });
     }
 
     return displayTerms;
