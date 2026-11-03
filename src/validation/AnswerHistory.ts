@@ -1,13 +1,13 @@
-//import type {Question} from "../questions/Questions"
-
+/**
+ * Gets all the answers stored in history.
+ * Returns a copy so other components can't change the original array.
+ *
+ * @returns A copy of the stored answer results.
+ */
+import type {Question} from "../questions/Question"
 export interface ProblemResult{
-    //TODO: after Question.ts merged,
-    //1. Import Question.ts from question generator
-    //2. change question: string; and correctAnswer:string to question:Question
-    //3. update unit test and answer validator
-    question: string;
-    correctAnswer: string;
-
+    question: Question;
+    expectedAnswer: string;
     playerAnswer: string;
     isCorrect: boolean;
 }
@@ -20,7 +20,8 @@ export class AnswerHistory{
     }
 
     getResults(): ProblemResult[]{
-        //creates a copy of array, so other components don't modify
+        //creates a copy of array, so other components don't directly modify
+        //original array
         return [...this.results];
     }
 }

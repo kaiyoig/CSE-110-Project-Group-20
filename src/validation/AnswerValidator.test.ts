@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { AnswerHistory } from "./AnswerHistory";
 import { AnswerValidator } from "./AnswerValidator";
+import { EventType } from "../notification-manager/GameEvent";
 
-//Test 1: checks if correct answer returns true
 describe("AnswerValidator", () => {
+    //Test 1: checks if correct answer returns true
     it("Should Accept Correct Answer", () => {
         const history = new AnswerHistory();
 
@@ -18,9 +19,12 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
         const result = validator.validateAnswer(
-            "5 + 3 = ?",
+            question,
             "8",
             "8",
             true
@@ -32,8 +36,8 @@ describe("AnswerValidator", () => {
 
         expect(notifications.send).toHaveBeenCalledOnce();
         expect(notifications.send).toHaveBeenCalledWith({
-        eventType: 0
-    });
+        eventType: EventType.Correct
+});
     });
 
     //Test 2: checks if incorrect answer returns false
@@ -49,9 +53,12 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
         const result = validator.validateAnswer(
-            "5 + 3 = ?",
+            question,
             "6",
             "8",
             true
@@ -63,7 +70,8 @@ describe("AnswerValidator", () => {
 
         expect(notifications.send).toHaveBeenCalledOnce();
         expect(notifications.send).toHaveBeenCalledWith({
-        eventType: 1
+        eventType: EventType.Incorrect
+    });
     });
         
     });
@@ -81,9 +89,12 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
         const result = validator.validateAnswer(
-            "5 + 3 = ?",
+            question,
             " 8 ",
             "8",
             true
@@ -107,13 +118,16 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
-        validator.validateAnswer("5 + 3 = ?", "8", "8", true);
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
+        validator.validateAnswer(question, "8", "8", true);
 
         expect(history.getResults()).toEqual([
             {
-                question: "5 + 3 = ?",
-                correctAnswer: "8",
+                question: question,
+                expectedAnswer: "8",
                 playerAnswer: "8",
                 isCorrect: true
             }
@@ -135,13 +149,16 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
-        validator.validateAnswer("5 + 3 = ?", "6", "8", true);
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
+        validator.validateAnswer(question, "6", "8", true);
 
         expect(history.getResults()).toEqual([
             {
-                question: "5 + 3 = ?",
-                correctAnswer: "8",
+                question: question,
+                expectedAnswer: "8",
                 playerAnswer: "6",
                 isCorrect: false
             }
@@ -161,16 +178,27 @@ describe("AnswerValidator", () => {
         };
 
         const validator = new AnswerValidator(history, score, notifications);
-
-        validator.validateAnswer("5 + 3 = ?", "8", "8", true);
-        validator.validateAnswer("10 * 2 = ?", "15", "20", true);
-        validator.validateAnswer("12 / 4 = ?", "3", "3", true);
+        const question = {
+        prompt: "5 + 3 = ?",
+        answer: "8"
+        };
+        const question2 = {
+        prompt: "10 * 2 = ?",
+        answer: "20"
+        };
+        const question3 = {
+        prompt: "12 / 4 = ?",
+        answer: "3"
+        };
+        validator.validateAnswer(question, "8", "8", true);
+        validator.validateAnswer(question2, "15", "20", true);
+        validator.validateAnswer(question3, "3", "3", true);
 
         const results = history.getResults();
 
         expect(results).toHaveLength(3);
 
-        expect(results.map(result => result.question))
+        expect(results.map(result => result.question.prompt))
             .toEqual(["5 + 3 = ?", "10 * 2 = ?", "12 / 4 = ?"]);
 
         expect(results.map(result => result.isCorrect))
@@ -179,7 +207,7 @@ describe("AnswerValidator", () => {
         expect(results.map(result => result.playerAnswer))
             .toEqual(["8", "15", "3"]);
 
-        expect(results.map(result => result.correctAnswer))
+        expect(results.map(result => result.expectedAnswer))
             .toEqual(["8" , "20" , "3"]);
 
     });
@@ -197,10 +225,13 @@ describe("AnswerValidator", () => {
         send: vi.fn()
     };
 
-        const validator = new AnswerValidator(history, score, notifications);
-
+    const validator = new AnswerValidator(history, score, notifications);
+    const question = {
+    prompt: "3x + 2 = 17",
+    answer: "5"
+    };
     const result = validator.validateAnswer(
-        "3x + 2 = 17",
+        question,
         "3x = 15",
         "3x = 15",
         false
@@ -212,11 +243,6 @@ describe("AnswerValidator", () => {
 
     expect(notifications.send).toHaveBeenCalledOnce();
     expect(notifications.send).toHaveBeenCalledWith({
-    eventType: 0
+    eventType: EventType.Correct
     });
-});
-
-
-
-
 });

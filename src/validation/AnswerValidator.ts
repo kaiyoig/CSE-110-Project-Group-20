@@ -1,25 +1,14 @@
 import { AnswerHistory } from "./AnswerHistory";
-// import type { ScoreController } from "../score/ScoreController";
-// import type { Event } from "../notifications/Event";
-// import { EventType, type GameEvent } from "../notifications/Event";
+import type { Question } from "../questions/Question";
+import { EventType, type GameEvent } from "../notification-manager/GameEvent";
 
 interface ScoreActions {
     answerIncorrect(): void;
     roomSolved(kind: "main" | "bonus"): number;
 }
 
-//TODO: Replace Kaiyo Event type after merging
-enum EventType {
-    Correct,
-    Incorrect
-}
-
-//TODO: Change to send(event: GameEvent): void 
-//after Notification Manager is merged
-
 interface NotificationActions{
-    send(event: {
-    }): void;
+    send(event: GameEvent): void;
 }
 
 export class AnswerValidator{
@@ -34,28 +23,14 @@ export class AnswerValidator{
         this.notifications = notifications;
     }
 
-    //TODO: After Question.ts merged
-    //Accept Question object instead of question:string
-    //keep playerAnswer:string for multi-step questions
-    //Use question.answer as the final answer 
-    //Seven's component will determine isFinalStep.
-    //Update AnswerHistory and unit tests.
-
-    // Future method signature:
-    // validateAnswer(
-    //     question: Question,
-    //     playerAnswer: string,
-    //     expectedAnswer: string,
-    //     isFinalStep: boolean
-    // ): boolean
     validateAnswer(
-        question: string, 
+        question: Question, 
         playerAnswer: string, 
-        correctAnswer:string,
+        expectedAnswer:string,
         isFinalStep: boolean
     ): boolean {
         //determine if answer is correct
-        const isCorrect = playerAnswer.trim() === correctAnswer.trim();
+        const isCorrect = playerAnswer.trim() === expectedAnswer.trim();
 
         //if incorrect deduct from time from score controller
         if(!isCorrect){
@@ -63,7 +38,7 @@ export class AnswerValidator{
 
 
         //check if it is final submmited answer (NOT intermediate step) 
-        //unlocks room and grants rewards
+        //calls score controller to reward room completion
         } else if (isFinalStep){ 
             this.score.roomSolved("main");
         }
@@ -73,13 +48,9 @@ export class AnswerValidator{
         eventType: isCorrect ? EventType.Correct : EventType.Incorrect
         });
 
-        //store answer history
-        // TODO: After Question.ts is merged:
-        // store the Question object and expectedAnswer
-        // so incorrect intermediate steps can be reviewed.
         this.history.addResult({
         question: question,
-        correctAnswer: correctAnswer,
+        expectedAnswer: expectedAnswer,
         playerAnswer: playerAnswer,
         isCorrect: isCorrect
         });
