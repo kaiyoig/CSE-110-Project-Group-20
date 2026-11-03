@@ -1,26 +1,24 @@
-//import type {Question} from "../questions/Questions"
+import type { Question } from "../questions/Question";
 
-export interface ProblemResult{
-    //TODO: after Question.ts merged,
-    //1. Import Question.ts from question generator
-    //2. change question: string; and correctAnswer:string to question:Question
-    //3. update unit test and answer validator
-    question: string;
-    correctAnswer: string;
-
+/** One judged Step Answer. */
+export interface AnswerRecord {
+    question: Question;
     playerAnswer: string;
+    correctAnswer: string;
     isCorrect: boolean;
+    isLastStep: boolean;
 }
 
-export class AnswerHistory{
-    private results: ProblemResult[] = [];
+/** Every Answer given during one Heist, in order. */
+export class AnswerHistory {
+    private results: AnswerRecord[] = [];
 
-    addResult(result: ProblemResult): void{
+    addResult(result: AnswerRecord): void {
         this.results.push(result);
     }
 
-    getResults(): ProblemResult[]{
-        //creates a copy of array, so other components don't modify
+    getResults(): AnswerRecord[] {
+        // a copy, so other components can't modify the history
         return [...this.results];
     }
 }

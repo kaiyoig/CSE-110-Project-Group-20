@@ -1,4 +1,4 @@
-import { TermOp, TermValue } from './types'
+import { Term, TermOp, TermValue } from './types'
 import MultistepSolverModel from './multistep-solver-model'
 import MultistepSolverView from './multistep-solver-view'
 
@@ -106,7 +106,13 @@ class MultistepSolverController {
       )
     const isCorrect = operation === expectedOperation
     this.pendingOperation.accepted = isCorrect
-    this.onAnswerSubmit?.(this.equation, operation, expectedOperation, false)
+    const pending = this.pendingOperation
+    const isLastStep = this.wouldFinish(scratch => {
+      if (pending.kind === 'negativeSign') scratch.removeNegativeSign(pending.isLeftSide)
+      else if (pending.isLeftSide) scratch.moveLeftTerm(pending.index!)
+      else scratch.moveRightTerm(pending.index!)
+    })
+    this.onAnswerSubmit?.(this.equation, operation, expectedOperation, isLastStep)
   }
 
   /** Validates a submitted arithmetic answer. @param answer Submitted answer. */
@@ -219,41 +225,30 @@ class MultistepSolverController {
     else this.model.addRight(operator)
   }
 
+  /** Whether solving the next arithmetic problem leaves the equation solved. */
   private isLastArithmeticStep(): boolean {
-    const problems = this.model.arithmeticProblems()
-    if (problems.length !== 1) return false
+    return this.wouldFinish(scratch => scratch.solve())
+  }
 
-    const left = this.model.getLeftSide()
-    const right = this.model.getRightSide()
-    const isVariable = (side: Array<unknown>): boolean => {
-      if (side.length !== 1) return false
-      const term = side[0] as TermValue
-      return typeof term !== 'string' && !term.constant && term.positive
+  /**
+   * Whether applying `change` to a copy of the equation leaves it solved.
+   * The real model is untouched.
+   */
+  private wouldFinish(change: (scratch: MultistepSolverModel) => void): boolean {
+    const copy = (term: Term): Term => (typeof term === 'string' ? term : { ...term })
+    const scratch = new MultistepSolverModel()
+    this.model.getLeftSide().forEach(term => scratch.addLeft(copy(term)))
+    this.model.getRightSide().forEach(term => scratch.addRight(copy(term)))
+    try {
+      change(scratch)
+    } catch {
+      return false
     }
-    const isConstant = (side: Array<unknown>): boolean => {
-      if (side.length !== 1) return false
-      const term = side[0] as TermValue
-      return typeof term !== 'string' && term.constant
-    }
-
-    return (isVariable(left) && isConstant(right)) || (isConstant(left) && isVariable(right))
+    return isSolved(scratch.getLeftSide(), scratch.getRightSide())
   }
 
   private isSolvedEquation(): boolean {
-    const isVariable = (side: Array<unknown>): boolean => {
-      if (side.length !== 1) return false
-      const term = side[0] as TermValue
-      return typeof term !== 'string' && !term.constant && term.positive
-    }
-    const isConstant = (side: Array<unknown>): boolean => {
-      if (side.length !== 1) return false
-      const term = side[0] as TermValue
-      return typeof term !== 'string' && term.constant
-    }
-
-    const left = this.model.getLeftSide()
-    const right = this.model.getRightSide()
-    return (isVariable(left) && isConstant(right)) || (isConstant(left) && isVariable(right))
+    return isSolved(this.model.getLeftSide(), this.model.getRightSide())
   }
 
   private updateStateAfterModelChange(): void {
@@ -265,6 +260,21 @@ class MultistepSolverController {
     this.view.showDropzone()
     this.setState(this.model.arithmeticProblems().length > 0 ? 'Arithmetic' : 'Idle')
   }
+}
+
+/** True for `x = n` or `n = x` (a lone positive variable against a lone constant). */
+function isSolved(left: Array<Term>, right: Array<Term>): boolean {
+  const isVariable = (side: Array<Term>): boolean => {
+    if (side.length !== 1) return false
+    const term = side[0]
+    return typeof term !== 'string' && !term.constant && term.positive
+  }
+  const isConstant = (side: Array<Term>): boolean => {
+    if (side.length !== 1) return false
+    const term = side[0]
+    return typeof term !== 'string' && term.constant
+  }
+  return (isVariable(left) && isConstant(right)) || (isConstant(left) && isVariable(right))
 }
 
 export default MultistepSolverController

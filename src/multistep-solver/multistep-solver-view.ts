@@ -100,11 +100,7 @@ class MultistepSolverView {
           }
 
           if (isNegativeSign) {
-            const dropZoneRect = this.dropZone.getClientRect();
-            clone.position({
-              x: dropZoneRect.x + (dropZoneRect.width - clone.width()) / 2,
-              y: dropZoneRect.y + (dropZoneRect.height - clone.height()) / 2,
-            });
+            this.centerInDropzone(clone);
             this.dropZoneText.visible(false);
             this.blockInDrop = clone;
             this.onNegativeSignDropped?.(isLeftSide);
@@ -119,11 +115,7 @@ class MultistepSolverView {
           this.clearDropzone();
 
           this.blockInDrop = clone;
-          const dropZoneRect = this.dropZone.getClientRect();
-          clone.position({
-            x: dropZoneRect.x + (dropZoneRect.width - clone.width()) / 2,
-            y: dropZoneRect.y + (dropZoneRect.height - clone.height()) / 2,
-          });
+          this.centerInDropzone(clone);
           this.dropZoneText.visible(false);
 
           this.onTargetDropped?.(index, isLeftSide);
@@ -134,8 +126,21 @@ class MultistepSolverView {
 
       this.layer.add(clone);
 
-      clone.position(mousePosition);
+      // The pointer is in stage coordinates; the layer may be scaled and offset.
+      clone.absolutePosition(mousePosition);
       clone.startDrag();
+    });
+  }
+
+  // Centers a dropped clone on the drop zone. Client rects are in stage
+  // coordinates, so this works on a scaled or offset layer too.
+  private centerInDropzone(clone: Konva.Node) {
+    const dropZoneRect = this.dropZone.getClientRect();
+    const cloneRect = clone.getClientRect();
+    const offset = clone.absolutePosition();
+    clone.absolutePosition({
+      x: offset.x + dropZoneRect.x + (dropZoneRect.width - cloneRect.width) / 2 - cloneRect.x,
+      y: offset.y + dropZoneRect.y + (dropZoneRect.height - cloneRect.height) / 2 - cloneRect.y,
     });
   }
 
@@ -492,6 +497,12 @@ class MultistepSolverView {
   hideDropzone(): void {
     this.dropZone.visible(false);
     this.dropZone.listening(false);
+  }
+
+  /** Removes every node the view added to the layer. */
+  destroy(): void {
+    this.clearDropzone();
+    this.view.destroy();
   }
 
   /** Removes a dropped clone and restores the drop-zone message. */

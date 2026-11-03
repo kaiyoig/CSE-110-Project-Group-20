@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getQuestion } from './QuestionGenerator';
 import { Question } from './Question';
+import { Difficulty } from '../score';
 
 const RANGE = 20; // must match RANGE in QuestionGenerator.ts
 const ITERATIONS = 1000;
@@ -32,12 +33,12 @@ function parsePrompt(prompt: string): ParsedPrompt {
 }
 
 function generateQuestions(count: number): Question[] {
-  return Array.from({ length: count }, () => getQuestion(1));
+  return Array.from({ length: count }, () => getQuestion(Difficulty.Medium));
 }
 
 describe('getQuestion', () => {
   it('returns a prompt and an answer as strings', () => {
-    const question = getQuestion(1);
+    const question = getQuestion(Difficulty.Medium);
 
     expect(typeof question.prompt).toBe('string');
     expect(typeof question.answer).toBe('string');

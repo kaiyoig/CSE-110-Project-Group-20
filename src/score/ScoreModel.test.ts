@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ScoreModel, Difficulty } from "./ScoreModel";
+import { ScoreModel, Difficulty, DIFFICULTY_LABEL } from "./ScoreModel";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -23,6 +23,12 @@ describe("ScoreModel", () => {
     expect(Difficulty.Easy).toBe(0);
     expect(Difficulty.Medium).toBe(1);
     expect(Difficulty.Hard).toBe(2);
+  });
+
+  it("labels each difficulty for display", () => {
+    expect(DIFFICULTY_LABEL[Difficulty.Easy]).toBe("Easy");
+    expect(DIFFICULTY_LABEL[Difficulty.Medium]).toBe("Medium");
+    expect(DIFFICULTY_LABEL[Difficulty.Hard]).toBe("Hard");
   });
 
   it("uses multipliers 1 / 3 / 6", () => {
