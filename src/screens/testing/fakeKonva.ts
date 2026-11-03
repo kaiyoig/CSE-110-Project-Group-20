@@ -226,13 +226,16 @@ export class FakeStage extends FakeGroup {
   }
 }
 
-/** Every Text node under `root` whose text matches. */
-export function textNodes(root: FakeNode): FakeNode[] {
-  return root.find((node) => node instanceof FakeText);
+/**
+ * Every Text node under `root`. Takes `unknown` so tests can pass nodes typed
+ * as real Konva nodes (which are fakes at runtime).
+ */
+export function textNodes(root: unknown): FakeNode[] {
+  return (root as FakeNode).find((node) => node instanceof FakeText);
 }
 
 /** The visible texts under `root`, in tree order. */
-export function visibleTexts(root: FakeNode): string[] {
+export function visibleTexts(root: unknown): string[] {
   return textNodes(root).filter((node) => node.isVisible()).map((node) => String(node.text()));
 }
 
