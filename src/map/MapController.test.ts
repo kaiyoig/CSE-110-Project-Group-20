@@ -1,9 +1,13 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Room } from './Room';
 import { MapController, type SwitchMapScreen, type AccessDeniedPayload } from './MapController';
+import { ScoreController, ScoreModel } from '../score';
+
+const question = { prompt: 'x * 2 + 1 = 5', answer: '2' };
 
 describe('MapController Tests', () => {
   let controller: MapController;
+  let score: ScoreController;
   let screenChangeMock: ReturnType<typeof vi.fn<(event: SwitchMapScreen) => void>>;
   let accessDeniedMock: ReturnType<typeof vi.fn<(payload: AccessDeniedPayload) => void>>;
 
@@ -12,8 +16,13 @@ describe('MapController Tests', () => {
   let placeholderRoomC: Room;
   let placeholderVault: Room;
 
+  afterEach(() => {
+    score.dispose();
+  });
+
   beforeEach(() => {
-    controller = new MapController();
+    score = new ScoreController(new ScoreModel());
+    controller = new MapController(score);
 
     // Mocks for execution site callbacks
     screenChangeMock = vi.fn();
@@ -23,16 +32,18 @@ describe('MapController Tests', () => {
     controller.onAccessDenied = accessDeniedMock;
 
     // Set up placeholder rooms matching the bank layout
-    placeholderRoomA = new Room({ id: 'room_a', name: 'Room A' });
-    placeholderRoomB = new Room({ id: 'room_b', name: 'Room B' });
+    placeholderRoomA = new Room({ id: 'room_a', name: 'Room A', question });
+    placeholderRoomB = new Room({ id: 'room_b', name: 'Room B', question });
     placeholderRoomC = new Room({
       id: 'room_c',
       name: 'Room C',
+      question,
       prerequisites: ['room_a', 'room_b'],
     });
     placeholderVault = new Room({
       id: 'vault',
       name: 'Vault',
+      question,
       prerequisites: ['room_c'],
     });
 
@@ -95,7 +106,7 @@ describe('MapController Tests', () => {
     });
   });
 
-  test('clicking Room C fails prerequisites and emits access denied callback when Room A and Room B are incomplete', () => {
+  test('clicking Room C fails prerequisites and emits access denied callback when Room A and Room B are not Solved', () => {
     const result = controller.clickRoomButton('room_c');
 
     expect(result).toBe(false);
@@ -112,10 +123,10 @@ describe('MapController Tests', () => {
     expect(screenChangeMock).not.toHaveBeenCalled();
   });
 
-  test('clicking Room C fails prerequisites if Room A is completed and Room B is incomplete', () => {
-    // Complete Room A
-    controller.completeRoom('room_a');
-    expect(controller.completedRooms.has('room_a')).toBe(true);
+  test('clicking Room C fails prerequisites if Room A is Solved and Room B is not', () => {
+    // Solve Room A
+    controller.solveRoom('room_a');
+    expect(controller.solvedRooms.has('room_a')).toBe(true);
 
     // Attempt Room C again
     const result = controller.clickRoomButton('room_c');
@@ -134,14 +145,14 @@ describe('MapController Tests', () => {
     expect(screenChangeMock).not.toHaveBeenCalled();
   });
 
-  test('clicking Room C succeeds after both Room A and Room B are completed', () => {
-    // Complete Room A
-    controller.completeRoom('room_a');
-    expect(controller.completedRooms.has('room_a')).toBe(true);
+  test('clicking Room C succeeds after both Room A and Room B are Solved', () => {
+    // Solve Room A
+    controller.solveRoom('room_a');
+    expect(controller.solvedRooms.has('room_a')).toBe(true);
 
-    // Complete Room B
-    controller.completeRoom('room_b');
-    expect(controller.completedRooms.has('room_b')).toBe(true);
+    // Solve Room B
+    controller.solveRoom('room_b');
+    expect(controller.solvedRooms.has('room_b')).toBe(true);
 
     // Attempt Room C again
     const result = controller.clickRoomButton('room_c');
@@ -171,29 +182,42 @@ describe('MapController Tests', () => {
     });
   });
 
-  test('completeVault marks the vault complete and switches screen to results', () => {
-    const vault = new Room({
-      id: 'vault',
-      name: 'Vault',
-      prerequisites: ['room_c'],
-    });
+  test('solveVault marks the Vault Solved without switching screens', () => {
+    controller.solveVault('vault');
 
-    controller.registerRoom(vault);
-    controller.completeVault('vault');
+    expect(controller.solvedRooms.has('vault')).toBe(true);
+    expect(screenChangeMock).not.toHaveBeenCalled();
+  });
 
-    // Verify vault completion state
-    expect(controller.completedRooms.has('vault')).toBe(true);
+  test('a Solved Room cannot be entered again', () => {
+    controller.solveRoom('room_a');
 
-    // Verify screen state transitions to results
-    expect(controller.currentScreen).toBe('results');
+    expect(controller.clickRoomButton('room_a')).toBe(false);
     expect(controller.activeRoom).toBeNull();
+    expect(screenChangeMock).not.toHaveBeenCalled();
+    expect(accessDeniedMock).not.toHaveBeenCalled();
+  });
 
-    // Verify the callback notified listeners
-    expect(screenChangeMock).toHaveBeenCalledWith({
-      screen: 'results',
-      room: vault,
-      name: 'Results',
-    });
+  test('solveRoom ignores an unknown id', () => {
+    controller.solveRoom('nope');
+
+    expect(controller.solvedRooms.size).toBe(0);
+  });
+
+  test('entering a Room starts the clock and returning to the map pauses it', () => {
+    controller.clickRoomButton('room_a');
+    expect(score.isInRoom()).toBe(true);
+    expect(score.isRunning()).toBe(true);
+
+    controller.returnToMap();
+    expect(score.isInRoom()).toBe(false);
+    expect(score.isRunning()).toBe(false);
+  });
+
+  test('a denied click does not start the clock', () => {
+    controller.clickRoomButton('room_c');
+
+    expect(score.isRunning()).toBe(false);
   });
 
 });
