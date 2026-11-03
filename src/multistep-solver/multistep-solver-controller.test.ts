@@ -93,4 +93,70 @@ describe('MultistepSolverController', () => {
 
     expect(controller.getState()).not.toBe('Finished')
   })
+
+  describe('isLastStep', () => {
+    const solveWithSubmissions = (equation: string) => {
+      const submissions: Array<[string, string, boolean]> = []
+      const model = new MultistepSolverModel()
+      const controller = new MultistepSolverController(model, fakeView())
+      controller.onAnswerSubmit = (_q, playerAnswer, correctAnswer, isLastStep) => {
+        submissions.push([playerAnswer, correctAnswer, isLastStep])
+        if (playerAnswer === correctAnswer) controller.step()
+      }
+      controller.setEquation(equation)
+      return { controller, submissions }
+    }
+
+    it('is true only for the arithmetic that leaves x = n', () => {
+      const { controller, submissions } = solveWithSubmissions('x * 5 + 3 = 8')
+
+      controller.operation(3, true) // + 3
+      controller.moveRequest('-')
+      controller.arithmetic('5') // 8 - 3
+      controller.operation(2, true) // * 5
+      controller.moveRequest('/')
+      controller.arithmetic('1') // 5 / 5
+
+      expect(submissions).toEqual([
+        ['-', '-', false],
+        ['5', '5', false],
+        ['/', '/', false],
+        ['1', '1', true],
+      ])
+      expect(controller.getState()).toBe('Finished')
+    })
+
+    it('reports the last Step the same way when the Answer is wrong', () => {
+      const { controller, submissions } = solveWithSubmissions('x * 5 = 10')
+
+      controller.operation(2, true)
+      controller.moveRequest('/')
+      controller.arithmetic('3')
+
+      expect(submissions.at(-1)).toEqual(['3', '2', true])
+      expect(controller.getState()).toBe('Arithmetic')
+    })
+
+    it('is false for removing a negative sign, which still leaves a product', () => {
+      const { controller, submissions } = solveWithSubmissions('-x * 5 = -10')
+
+      controller.removeNegativeSign(true)
+      controller.moveRequest('*')
+
+      expect(submissions).toEqual([['*', '*', false]])
+      expect(controller.getState()).not.toBe('Finished')
+    })
+
+    it('does not change the real equation while checking', () => {
+      const model = new MultistepSolverModel()
+      const controller = new MultistepSolverController(model, fakeView())
+      controller.setEquation('x * 5 + 3 = 8')
+      const before = JSON.stringify([model.getLeftSide(), model.getRightSide()])
+
+      controller.operation(3, true)
+      controller.moveRequest('-')
+
+      expect(JSON.stringify([model.getLeftSide(), model.getRightSide()])).toBe(before)
+    })
+  })
 })

@@ -1,27 +1,24 @@
-/**
- * Gets all the answers stored in history.
- * Returns a copy so other components can't change the original array.
- *
- * @returns A copy of the stored answer results.
- */
-import type {Question} from "../questions/Question"
-export interface ProblemResult{
+import type { Question } from "../questions/Question";
+
+/** One judged Step Answer. */
+export interface AnswerRecord {
     question: Question;
-    expectedAnswer: string;
     playerAnswer: string;
+    correctAnswer: string;
     isCorrect: boolean;
+    isLastStep: boolean;
 }
 
-export class AnswerHistory{
-    private results: ProblemResult[] = [];
+/** Every Answer given during one Heist, in order. */
+export class AnswerHistory {
+    private results: AnswerRecord[] = [];
 
-    addResult(result: ProblemResult): void{
+    addResult(result: AnswerRecord): void {
         this.results.push(result);
     }
 
-    getResults(): ProblemResult[]{
-        //creates a copy of array, so other components don't directly modify
-        //original array
+    getResults(): AnswerRecord[] {
+        // a copy, so other components can't modify the history
         return [...this.results];
     }
 }

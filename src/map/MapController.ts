@@ -1,9 +1,10 @@
 import { Room } from "./Room";
+import type { ScoreController } from "../score";
 
 export interface SwitchMapScreen {
-    screen: string;
-    room: Room | null;
-    name: string;
+  screen: string;
+  room: Room | null;
+  name: string;
 }
 
 export interface AccessDeniedPayload {
@@ -13,88 +14,74 @@ export interface AccessDeniedPayload {
   missingPrerequisiteNames: string[];
 }
 
+/**
+ * Tracks which Room the player is in and which Rooms are Solved, and gates
+ * entry by prerequisites. It starts and pauses the clock itself through the
+ * ScoreController. Game connects `onScreenChange` / `onAccessDenied` to the
+ * screens and decides when the Heist ends.
+ */
 export class MapController {
-  private rooms: Map<string, Room> = new Map();
-  public currentScreen: string = 'map';
+  private readonly rooms: Map<string, Room> = new Map();
+  private readonly solved: Set<string> = new Set();
+  public currentScreen: string = "map";
   public activeRoom: Room | null = null;
-  public completedRooms: Set<string> = new Set();
 
-  /**
-   * Placeholder implementation
-   * Use ScreenController to manage screen switching in the future
-   * MapController will emit navigation requests for ScreenController to receive
-  */
   public onScreenChange: ((event: SwitchMapScreen) => void) | null = null;
   public onAccessDenied: ((payload: AccessDeniedPayload) => void) | null = null;
+
+  constructor(private readonly score: ScoreController) {}
+
+  /** Ids of the Solved Rooms. */
+  public get solvedRooms(): ReadonlySet<string> {
+    return this.solved;
+  }
 
   public registerRoom(room: Room): void {
     this.rooms.set(room.id, room);
   }
 
-  // Called when room problem(s) correctly answered
-  public completeRoom(roomId: string): void {
-    const room = this.rooms.get(roomId);
-    if (room) {
-      this.completedRooms.add(roomId);
+  /** Marks a registered Room as Solved. */
+  public solveRoom(roomId: string): void {
+    if (this.rooms.has(roomId)) {
+      this.solved.add(roomId);
     }
   }
 
-  // Called when player completed the vault; finishes game and switches to results screen
-  public completeVault(vaultId: string = 'vault'): void {
-    const vault = this.rooms.get(vaultId);
-    if (vault) {
-      this.completedRooms.add(vaultId);
-    }
-
-    // Use ScreenController to update screen state to results
-    this.currentScreen = 'results';
-    this.activeRoom = null;
-
-    if (this.onScreenChange) {
-      this.onScreenChange({
-        screen: 'results',
-        room: vault || null,
-        name: 'Results',
-      });
-    }
-
+  /** Marks the Vault as Solved. Ending the Heist is up to Game. */
+  public solveVault(vaultId: string = "vault"): void {
+    this.solveRoom(vaultId);
   }
 
-  // Called when player presses on a room button
+  /**
+   * Called when the player clicks a Room. Enters it (and starts the clock)
+   * when it is accessible and not Solved yet. A locked Room fires
+   * `onAccessDenied` instead. Returns whether the Room was entered.
+   */
   public clickRoomButton(roomId: string): boolean {
     const room = this.rooms.get(roomId);
     if (!room) {
-        return false;
-    }
-
-    // Prevent re-entering completed rooms
-    if (this.completedRooms.has(roomId)) {
       return false;
     }
 
-    const completedRoomsList = Array.from(this.completedRooms);
-    const canEnter = room.isAccessible(Array.from(this.completedRooms));
+    // A Solved Room can't be entered again.
+    if (this.solved.has(roomId)) {
+      return false;
+    }
 
-    if (canEnter) {
-        this.currentScreen = room.id;
-        this.activeRoom = room;
-
-        // Call score.enterRoom() here
-
-        // Use ScreenController here
-        if(this.onScreenChange) {
-            this.onScreenChange({
-                screen: room.id,
-                room: room,
-                name: room.name,
-            });
-        }
-
-        return true;
+    if (room.isAccessible(this.solved)) {
+      this.currentScreen = room.id;
+      this.activeRoom = room;
+      this.score.enterRoom();
+      this.onScreenChange?.({
+        screen: room.id,
+        room: room,
+        name: room.name,
+      });
+      return true;
     }
 
     if (this.onAccessDenied) {
-      const missingIds = room.getMissingPrerequisites(completedRoomsList);
+      const missingIds = room.getMissingPrerequisites(this.solved);
       const missingNames = missingIds.map((id) => this.rooms.get(id)?.name || id);
       this.onAccessDenied({
         roomId: room.id,
@@ -106,21 +93,15 @@ export class MapController {
     return false;
   }
 
-  // Called when player exits a room and returns to the map screen
+  /** Called when the player leaves a Room. Pauses the clock. */
   public returnToMap(): void {
-    this.currentScreen = 'map';
+    this.currentScreen = "map";
     this.activeRoom = null;
-
-    // Call score.returnToMap() here
-
-    // Use ScreenController here
-    if (this.onScreenChange) {
-      this.onScreenChange({
-        screen: 'map',
-        room: null,
-        name: 'Map',
-      });
-    }
+    this.score.returnToMap();
+    this.onScreenChange?.({
+      screen: "map",
+      room: null,
+      name: "Map",
+    });
   }
-
 }

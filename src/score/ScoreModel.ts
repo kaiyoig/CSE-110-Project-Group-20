@@ -22,6 +22,13 @@ export enum Difficulty {
   Hard = 2,
 }
 
+/** Display names for each Difficulty. */
+export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  [Difficulty.Easy]: "Easy",
+  [Difficulty.Medium]: "Medium",
+  [Difficulty.Hard]: "Hard",
+};
+
 export type RoomKind = "main" | "bonus";
 
 export const DEFAULT_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour

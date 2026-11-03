@@ -5,6 +5,7 @@ import MultistepSolverController from '../multistep-solver/multistep-solver-cont
 import MultistepSolverModel from '../multistep-solver/multistep-solver-model'
 import MultistepSolverView from '../multistep-solver/multistep-solver-view'
 import { TermOp } from '../multistep-solver/types'
+import type { StepAnswer } from '../questions/Question'
 import TextInput from '../text-input/text-input'
 
 export interface BasicMultistepPuzzleOptions {
@@ -34,6 +35,12 @@ class BasicMultistepPuzzle {
 
   /** Called when the puzzle reaches its Finished state. */
   public onPuzzleFinished?: (solved: boolean) => void
+
+  /**
+   * Called with every Step's Answer (operation picks and arithmetic), after
+   * the puzzle has judged it and advanced if it was correct.
+   */
+  public onAnswer?: (answer: StepAnswer) => void
 
   /**
    * Creates and initializes a puzzle.
@@ -106,14 +113,17 @@ class BasicMultistepPuzzle {
     this.input.onTextFocused = () => {
       this.input.outlineColor('#77aaff')
     }
-    this.input.onTextEntered = answer => {
+    this.input.onTextEntered = text => {
       this.input.outlineColor('#aabbbb')
+      const answer = text.trim()
+      if (answer === '') return // an empty box (e.g. on blur) isn't an Answer
       this.controller.arithmetic(answer)
     }
 
-    this.controller.onAnswerSubmit = (_question, playerAnswer, correctAnswer) => {
+    this.controller.onAnswerSubmit = (_question, playerAnswer, correctAnswer, isLastStep) => {
       this.input.clear()
       if (playerAnswer === correctAnswer) this.controller.step()
+      this.onAnswer?.({ playerAnswer, correctAnswer, isLastStep })
     }
 
     this.controller.onStateChange = state => {
@@ -135,6 +145,17 @@ class BasicMultistepPuzzle {
         this.onPuzzleFinished?.(true)
       }
     }
+  }
+
+  /** Removes the puzzle from its layer, including the text input's HTML element. */
+  public destroy(): void {
+    this.onAnswer = undefined
+    this.onPuzzleFinished = undefined
+    this.controller.onAnswerSubmit = undefined
+    this.controller.onStateChange = undefined
+    this.view.destroy()
+    this.actionMenu.destroy()
+    this.input.destroy()
   }
 
   private moveRequest(operation: TermOp): void {

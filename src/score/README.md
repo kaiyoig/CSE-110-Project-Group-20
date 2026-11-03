@@ -3,41 +3,45 @@
 Everything lives in `src/score/`. Import from the folder:
 
 ```ts
-import { ScoreModel, ScoreController, Leaderboard, Difficulty, formatTime, formatMoney } from "./score";
+import { ScoreModel, ScoreController, Leaderboard, Difficulty, DIFFICULTY_LABEL, formatTime, formatMoney } from "./score";
 ```
 
-## Setup (once, when the game starts)
+## Setup (once per Heist, done by Game)
+
+`src/game/Game.ts` creates one ScoreModel + ScoreController per Heist and connects it:
 
 ```ts
 // Difficulty uses the same numbers as getQuestion(): 0 = Easy, 1 = Medium, 2 = Hard
-const score = new ScoreController(new ScoreModel({ difficulty: Difficulty.Medium }));
-score.pauseWhenHidden();                         // pause when the tab is switched
-score.onChange((m) => updateHud(m));             // HUD: time + money
-score.onTimeUp(() => showEndScreen(score.getModel().snapshot())); // caught
+const score = new ScoreController(new ScoreModel({ difficulty }));
+score.onChange((m) => /* both HUDs: */ screen.setHud(m.getTimeRemainingMs(), m.getTimeLimitMs(), m.getMoney()));
+score.onTimeUp(() => /* end the Heist as Caught */);
 ```
 
-## What each person needs to call
+Display labels: `DIFFICULTY_LABEL[difficulty]` gives `"Easy"`, `"Medium"` or `"Hard"`.
+
+## Who calls what
 
 | Who | When | Call |
 |---|---|---|
-| **Calista** (map) | Player enters a room | `score.enterRoom()` |
-| **Calista** (map) | Player goes back to the map | `score.returnToMap()` |
-| **Calista** (map) | Vault solved, player escapes | `showEndScreen(score.getModel().snapshot())` |
-| **Brian** (validation) | A step is submitted and **wrong** | `score.answerIncorrect()` |
-| **Brian** (validation) | A step is right but the room isn't finished | nothing |
-| **Brian** (validation) | The **last** step is right (room done) | `score.roomSolved("main")` or `score.roomSolved("bonus")` |
-| **Seven** (HUD) | Show time / money | `formatTime(m.getTimeRemainingMs())`, `formatMoney(m.getMoney())` |
-| **Asad** (end screen) | Show results | use the `snapshot()` object (below) |
+| **MapController** | Player enters a Room | `score.enterRoom()` |
+| **MapController** | Player goes back to the map | `score.returnToMap()` |
+| **AnswerValidator** | Any Step's Answer is **wrong** (operation picks included) | `score.answerIncorrect()` |
+| **AnswerValidator** | A Step is right but the Room isn't finished | nothing |
+| **AnswerValidator** | The **last** Step is right (Room Solved) | `score.roomSolved(room.kind)` (`"main"` or `"bonus"`) |
+| **Game** | Every score change | `setHud(remaining, limit, money)` on the Map and Room Screens |
+| **Game** | Vault Solved, or time up | `score.dispose()`, then freezes `score.getModel().snapshot()` into the HeistResult |
+| **Hud** | Show time / money | `formatTime(timeRemainingMs)`, `formatMoney(money)` |
+| **EndScreen** | Show results | the `snapshot` in the HeistResult (below) |
 
 ## Things to watch out for
 
-- **The clock only runs inside rooms.** Please call `enterRoom()` / `returnToMap()` every time — otherwise time won't move (or won't stop).
-- **One room = one question, but it can have several steps.** Every wrong step submission costs time (`answerIncorrect()`). Call `roomSolved()` only once, when the whole room is finished.
-- **Rooms can't be solved after time is up** (`roomSolved()` returns 0 and nothing is counted).
+- **The clock only runs inside Rooms.** MapController calls `enterRoom()` / `returnToMap()` every time.
+- **One Room = one Question, but it has several Steps.** Every wrong Step costs time (`answerIncorrect()`) and rules out Flawless. `roomSolved()` is called only once, when the last Step is right.
+- **Rooms can't be solved after time is up** (`roomSolved()` returns 0 and nothing is counted). Game then ends the Heist as Caught.
 - **Don't change money or time directly.** Always go through `ScoreController` so the HUD gets updated.
-- **Two endings:** `onTimeUp` only fires when the player is caught. A successful escape is triggered by the map (Vault). Both pass the same `snapshot()`.
+- **Two endings:** `onTimeUp` only fires when the player is Caught. Escaping is decided by Game when the Vault is Solved. The End Screen reads the outcome from `HeistResult.outcome`, not from `snapshot.caught`.
 
-## End screen data — `score.getModel().snapshot()`
+## End Screen data — `HeistResult.snapshot` (from `score.getModel().snapshot()`)
 
 ```ts
 {
@@ -55,7 +59,7 @@ score.onTimeUp(() => showEndScreen(score.getModel().snapshot())); // caught
 
 We originally planned one leaderboard. It is now **split by difficulty** (easy / medium / hard),
 because hard questions take longer and a single ranking isn't fair.
-The end/leaderboard screen should show three tabs (or a difficulty picker).
+The End Screen shows the ranking for the Heist's Difficulty.
 
 ```ts
 const board = new Leaderboard();                       // saved in localStorage
@@ -63,11 +67,11 @@ const rank = board.addEntry({ playerName, difficulty, score, timeSpentMs }); // 
 board.getEntries(Difficulty.Hard);                              // top 10, highest score first
 ```
 
-Don't save a caught run (score 0) unless we decide otherwise.
+Only an Escaped Heist can be saved (`main.ts` offers the name box only then).
 
 ## Rules (for reference)
 
-- 1 hour per heist, only counts down inside rooms. Wrong answer: −60 s.
+- 1 hour per Heist, only counts down inside Rooms. Every wrong Step: −60 s.
 - Difficulty multiplier: easy ×1, medium ×3, hard ×6.
 - Money: main room $100 × multiplier, bonus room $300 × multiplier. Money does **not** affect score (for skins later).
 - Score = multiplier × correct answers × seconds left. Bonus rooms count as **3** correct answers.
