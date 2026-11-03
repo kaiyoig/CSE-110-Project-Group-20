@@ -88,6 +88,9 @@ class BasicMultistepPuzzle {
     this.view.onTargetDropped = (index, isLeftSide) => {
       this.controller.operation(index, isLeftSide)
     }
+    this.view.onNegativeSignDropped = isLeftSide => {
+      this.controller.removeNegativeSign(isLeftSide)
+    }
 
     this.actionMenu.onAdditionClicked = () => this.moveRequest('+')
     this.actionMenu.onSubtractionClicked = () => this.moveRequest('-')
