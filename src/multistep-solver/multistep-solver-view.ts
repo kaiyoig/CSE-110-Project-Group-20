@@ -86,6 +86,17 @@ class MultistepSolverView {
           }
 
           let isLeftSide = leftIndex >= 0;
+          const droppedTerm = block.getAttr('term') as Term;
+          const sideBlocks = isLeftSide ? this.leftSide : this.rightSide;
+          const isOnlyZero = sideBlocks.length === 1 &&
+            typeof droppedTerm !== 'string' &&
+            droppedTerm.constant &&
+            droppedTerm.term.split('/')[0] === '0';
+          if (isOnlyZero) {
+            clone.destroy();
+            return;
+          }
+
           if (isNegativeSign) {
             const dropZoneRect = this.dropZone.getClientRect();
             clone.position({
