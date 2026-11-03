@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Game, ROOM_LAYOUT, VAULT_ID } from "./Game";
 import { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
-import { DEFAULT_TIME_LIMIT_MS, ROOM_MONEY, WRONG_ANSWER_PENALTY_SECONDS } from "../score";
+import { DEFAULT_TIME_LIMIT_MS, Difficulty, ROOM_MONEY, WRONG_ANSWER_PENALTY_SECONDS } from "../score";
 import type { Room } from "../map/Room";
 import type { AccessDeniedPayload } from "../map/MapController";
 import type { Question } from "../questions/Question";
@@ -98,7 +98,7 @@ describe("Game", () => {
   let events: EventType[];
   let game: Game;
 
-  function newGame(difficulty = 0): Game {
+  function newGame(difficulty: Difficulty = Difficulty.Easy): Game {
     return new Game(difficulty, { notifications, screens, mapScreen, roomScreen });
   }
 
@@ -315,6 +315,6 @@ describe("Game", () => {
   });
 
   it("rejects an unknown difficulty", () => {
-    expect(() => newGame(7)).toThrow(RangeError);
+    expect(() => newGame(7 as Difficulty)).toThrow(RangeError);
   });
 });

@@ -2,7 +2,7 @@ import type { Screen } from "./ScreenController";
 import type { Question } from "../questions/Question";
 import type { Room } from "../map/Room";
 import type { AccessDeniedPayload } from "../map/MapController";
-import type { LeaderboardEntry } from "../score";
+import type { Difficulty, LeaderboardEntry } from "../score";
 import type { HeistResult } from "../game/Game";
 
 /**
@@ -16,8 +16,7 @@ import type { HeistResult } from "../game/Game";
 export type Unsubscribe = () => void;
 
 export interface StartScreen extends Screen {
-  /** 0 = easy, 1 = medium, 2 = hard. */
-  onStart(cb: (difficulty: number) => void): Unsubscribe | void;
+  onStart(cb: (difficulty: Difficulty) => void): Unsubscribe | void;
 }
 
 export interface MapScreen extends Screen {

@@ -73,14 +73,14 @@ export class Game {
   private answering = false;
   private pendingOutcome: HeistOutcome | null = null;
 
-  constructor(difficulty: number, deps: GameDeps) {
+  constructor(difficulty: Difficulty, deps: GameDeps) {
     this.notifications = deps.notifications;
     this.screens = deps.screens;
     this.mapScreen = deps.mapScreen;
     this.roomScreen = deps.roomScreen;
 
     // ScoreModel validates the value and throws a RangeError for an unknown difficulty.
-    this.score = new ScoreController(new ScoreModel({ difficulty: difficulty as Difficulty }));
+    this.score = new ScoreController(new ScoreModel({ difficulty }));
     this.map = new MapController(this.score);
     this.rooms = ROOM_LAYOUT.map(
       (r) => new Room({ ...r, question: getQuestion(difficulty) }),

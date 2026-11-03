@@ -1,4 +1,5 @@
 import { Question } from "./Question";
+import type { Difficulty } from "../score";
 
 const RANGE: number = 20; // answers can range from -RANGE to +RANGE
 
@@ -57,11 +58,11 @@ function getFactors(n: number) : number[] {
  * randomly generates and returns a Question
  * @todo change question generation based on difficulty; higher difficulty = more steps
  *
- * @param difficulty: 0 = easy, 1 = medium, 2 = hard
+ * @param difficulty: Difficulty.Easy / Medium / Hard (from score)
  * 
  * @return a Question with a prompt in the format x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
  */
-export function getQuestion(difficulty: number): Question {
+export function getQuestion(difficulty: Difficulty): Question {
   // generate answer
   const answerValue: number = randomNonZero(RANGE);
 
