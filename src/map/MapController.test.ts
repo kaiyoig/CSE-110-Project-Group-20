@@ -183,7 +183,6 @@ describe('MapController Tests', () => {
 
     // Verify vault completion state
     expect(controller.completedRooms.has('vault')).toBe(true);
-    expect(vault.isCompleted).toBe(true);
 
     // Verify screen state transitions to results
     expect(controller.currentScreen).toBe('results');

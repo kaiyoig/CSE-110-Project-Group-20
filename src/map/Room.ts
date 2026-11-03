@@ -12,7 +12,6 @@ export class Room {
   public assets: Record<string, unknown>;
   public prerequisites: string[];
   public problems: unknown[];
-  public isCompleted: boolean;  //tracks room completion state
 
   constructor({id, name, assets = {}, prerequisites = [], problems = [], }: RoomConfig) {
     this.id = id;
@@ -20,7 +19,6 @@ export class Room {
     this.assets = assets;
     this.prerequisites = prerequisites;
     this.problems = problems;
-    this.isCompleted = false;
   }
 
   /**
@@ -44,13 +42,5 @@ export class Room {
   public getMissingPrerequisites(completedRoomIds: string[] = []): string[] {
     return this.prerequisites.filter((reqId) => !completedRoomIds.includes(reqId));
   }
-
-  /**
-   * Sets room as completed when problem(s) correctly solved
-   */
-  public setCompleted() {
-    this.isCompleted = true;
-  }
-
   
 }

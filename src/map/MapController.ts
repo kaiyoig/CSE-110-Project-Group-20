@@ -35,7 +35,6 @@ export class MapController {
   public completeRoom(roomId: string): void {
     const room = this.rooms.get(roomId);
     if (room) {
-      room.setCompleted();
       this.completedRooms.add(roomId);
     }
   }
@@ -44,7 +43,6 @@ export class MapController {
   public completeVault(vaultId: string = 'vault'): void {
     const vault = this.rooms.get(vaultId);
     if (vault) {
-      vault.setCompleted();
       this.completedRooms.add(vaultId);
     }
 
@@ -67,6 +65,11 @@ export class MapController {
     const room = this.rooms.get(roomId);
     if (!room) {
         return false;
+    }
+
+    // Prevent re-entering completed rooms
+    if (this.completedRooms.has(roomId)) {
+      return false;
     }
 
     const completedRoomsList = Array.from(this.completedRooms);
