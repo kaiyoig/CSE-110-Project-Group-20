@@ -8,6 +8,7 @@ type Block = Konva.Group
 interface DisplayTerm {
   term: Term
   modelIndex: number
+  negativeSign?: boolean
 }
 
 export interface MultistepSolverViewOptions {
@@ -41,6 +42,7 @@ class MultistepSolverView {
   private readonly DROP_ZONE_SIZE = 100
 
   public onTargetDropped?: (index: number, left: boolean) => void
+  public onNegativeSignDropped?: (left: boolean) => void
 
   private rectIntersectsRect(a: Konva.IRect, b: Konva.IRect): boolean {
     return a.x < b.x + b.width &&
@@ -54,7 +56,9 @@ class MultistepSolverView {
   //
   // e.g. you can't drag + to the other side
   private makePaletteBlock(block: Block) {
+    block.setAttr('paletteBlock', true);
     block.on('mousedown.palette touchstart.palette', _ => {
+      const isNegativeSign = block.getAttr('negativeSign') === true;
       let mousePosition = this.stage.getPointerPosition();
       if (mousePosition == null) return;
 
@@ -63,7 +67,7 @@ class MultistepSolverView {
       clone.setAttr('clone', true);
 
       clone.on('dragend.workspace touchend.workspace', _ => {
-        if (!this.onTargetDropped || this.dropZone.listening() == false) {
+        if ((!this.onTargetDropped && !this.onNegativeSignDropped) || this.dropZone.listening() == false) {
           clone.destroy();
           return;
         }
@@ -82,6 +86,18 @@ class MultistepSolverView {
           }
 
           let isLeftSide = leftIndex >= 0;
+          if (isNegativeSign) {
+            const dropZoneRect = this.dropZone.getClientRect();
+            clone.position({
+              x: dropZoneRect.x + (dropZoneRect.width - clone.width()) / 2,
+              y: dropZoneRect.y + (dropZoneRect.height - clone.height()) / 2,
+            });
+            this.dropZoneText.visible(false);
+            this.blockInDrop = clone;
+            this.onNegativeSignDropped?.(isLeftSide);
+            return;
+          }
+
           let index = block.getAttr('modelIndex') as number;
           if (index === undefined) {
             index = isLeftSide ? leftIndex : rightIndex;
@@ -97,7 +113,7 @@ class MultistepSolverView {
           });
           this.dropZoneText.visible(false);
 
-          this.onTargetDropped(index, isLeftSide);
+          this.onTargetDropped?.(index, isLeftSide);
         } else {
           clone.destroy();
         }
@@ -112,6 +128,7 @@ class MultistepSolverView {
 
   // If a block is a palette, "un-palette" it.
   private removePaletteStatus(block: Block) {
+    block.setAttr('paletteBlock', false);
     block.off(".palette");
   }
 
@@ -152,7 +169,9 @@ class MultistepSolverView {
   private createTermBlock(x: number, y: number, displayTerm: DisplayTerm): Konva.Group {
     let term = displayTerm.term;
     let isOperator = typeof term == "string";
-    let fillColor = isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND;
+    let fillColor = displayTerm.negativeSign
+      ? this.VALUE_BACKGROUND
+      : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND;
 
     let text = isOperator ? (term as string) : (term as TermValue).term;
 
@@ -160,8 +179,12 @@ class MultistepSolverView {
 
     group.setAttr('term', term);
     group.setAttr('modelIndex', displayTerm.modelIndex);
+    if (displayTerm.negativeSign) {
+      group.setAttr('negativeSign', true);
+      this.makePaletteBlock(group);
+    }
 
-    if (!isOperator) {
+    if (!isOperator && !displayTerm.negativeSign) {
       this.makePaletteBlock(group);
     }
 
@@ -183,20 +206,30 @@ class MultistepSolverView {
   private updateBlock(block: Block, displayTerm: DisplayTerm) {
     let term = displayTerm.term;
     let prevTerm: Term = block.getAttr('term');
+    const isNegativeSign = displayTerm.negativeSign === true;
+    const isOperator = typeof term === 'string';
     block.setAttr('modelIndex', displayTerm.modelIndex);
+    block.setAttr('negativeSign', isNegativeSign);
+
+    const shouldBePalette = isNegativeSign || !isOperator;
+    const isPalette = block.getAttr('paletteBlock') === true;
+    if (shouldBePalette && !isPalette) {
+      this.makePaletteBlock(block);
+    } else if (!shouldBePalette && isPalette) {
+      this.removePaletteStatus(block);
+    }
+
     if (prevTerm == term) {
+      let background = block.findOne<Konva.Rect>(".background");
+      if (background) {
+        background.fill(isNegativeSign
+          ? this.VALUE_BACKGROUND
+          : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
+      }
       return;
     }
 
-    let wasPalette = typeof prevTerm !== "string";
-    let isTermOperator = typeof term === "string";
     block.setAttr('term', term);
-    if (wasPalette && isTermOperator) {
-      this.removePaletteStatus(block);
-    }
-    if (!wasPalette && !isTermOperator) {
-      this.makePaletteBlock(block);
-    }
     let text = block.findOne<Konva.Text>(".text");
     let background = block.findOne<Konva.Rect>(".background");
 
@@ -204,20 +237,55 @@ class MultistepSolverView {
       throw Error("Could not update block because text or background doesn't exist in the group.");
     }
 
-    text.text(isTermOperator ? term as string : (term as TermValue).term);
-    background.fill(isTermOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
+    text.text(isOperator ? term as string : (term as TermValue).term);
+    background.fill(isNegativeSign
+      ? this.VALUE_BACKGROUND
+      : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
   }
 
   private getDisplayTerms(terms: Array<Term>): Array<DisplayTerm> {
     let displayTerms: Array<DisplayTerm> = [];
+    const hasLeadingMinusOperator = terms[0] === '-';
+    const variableIndex = hasLeadingMinusOperator ? 1 : 0;
+    const multiplicationIndex = variableIndex + 1;
+    const coefficientIndex = variableIndex + 2;
+    const canRemoveNegativeSign = terms.length === coefficientIndex + 1 &&
+      typeof terms[variableIndex] !== 'string' &&
+      terms[variableIndex].constant === false &&
+      (hasLeadingMinusOperator || !terms[variableIndex].positive) &&
+      terms[multiplicationIndex] === '*' &&
+      typeof terms[coefficientIndex] !== 'string' &&
+      terms[coefficientIndex].constant === true;
 
     for (let i = 0; i < terms.length; ++i) {
       let term = terms.at(i);
       if (!term) continue;
 
       const isZero = typeof term !== 'string' && term.constant && term.term.split('/')[0] === '0';
+      if (i === 0 && hasLeadingMinusOperator && canRemoveNegativeSign) {
+        displayTerms.push({
+          term: '-',
+          modelIndex: variableIndex,
+          negativeSign: true,
+        });
+        continue;
+      }
+      if (i === 0 && hasLeadingMinusOperator) {
+        displayTerms.push({ term, modelIndex: i });
+        continue;
+      }
       if (i === 0 && typeof term !== 'string' && !term.positive && !isZero) {
-        displayTerms.push({ term: '-', modelIndex: i });
+        displayTerms.push({
+          term: '-',
+          modelIndex: i,
+          negativeSign: canRemoveNegativeSign,
+        });
+      }
+      if (i > 0 && typeof term !== 'string' && typeof terms[i - 1] !== 'string') {
+        displayTerms.push({
+          term: term.positive ? '+' : '-',
+          modelIndex: i,
+        });
       }
       displayTerms.push({ term, modelIndex: i });
     }
