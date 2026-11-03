@@ -5,7 +5,8 @@ import MultistepSolverView from './multistep-solver-view'
 export type MultistepSolverState = 'Idle' | 'Operation' | 'Arithmetic' | 'Finished'
 
 interface PendingOperation {
-  index: number
+  kind: 'term' | 'negativeSign'
+  index?: number
   isLeftSide: boolean
   accepted: boolean
 }
@@ -76,17 +77,26 @@ class MultistepSolverController {
     const side = isLeftSide ? this.model.getLeftSide() : this.model.getRightSide()
     if (index < 0 || index >= side.length || typeof side[index] === 'string') return
 
-    this.pendingOperation = { index, isLeftSide, accepted: false }
+    this.pendingOperation = { kind: 'term', index, isLeftSide, accepted: false }
+    this.setState('Operation')
+  }
+
+  public removeNegativeSign(isLeftSide: boolean): void {
+    if (this.state === 'Arithmetic' || this.state === 'Finished') return
+
+    this.pendingOperation = { kind: 'negativeSign', isLeftSide, accepted: false }
     this.setState('Operation')
   }
 
   public moveRequest(operation: TermOp): void {
     if (this.state !== 'Operation' || !this.pendingOperation) return
 
-    const expectedOperation = this.model.correctOperation(
-      this.pendingOperation.index,
-      this.pendingOperation.isLeftSide,
-    )
+    const expectedOperation = this.pendingOperation.kind === 'negativeSign'
+      ? '*'
+      : this.model.correctOperation(
+        this.pendingOperation.index!,
+        this.pendingOperation.isLeftSide,
+      )
     const isCorrect = operation === expectedOperation
     this.pendingOperation.accepted = isCorrect
     this.onAnswerSubmit?.(this.equation, operation, expectedOperation, false)
@@ -113,10 +123,12 @@ class MultistepSolverController {
     if (this.state === 'Operation') {
       if (!this.pendingOperation?.accepted) return
 
-      if (this.pendingOperation.isLeftSide) {
-        this.model.moveLeftTerm(this.pendingOperation.index)
+      if (this.pendingOperation.kind === 'negativeSign') {
+        this.model.removeNegativeSign(this.pendingOperation.isLeftSide)
+      } else if (this.pendingOperation.isLeftSide) {
+        this.model.moveLeftTerm(this.pendingOperation.index!)
       } else {
-        this.model.moveRightTerm(this.pendingOperation.index)
+        this.model.moveRightTerm(this.pendingOperation.index!)
       }
 
       this.pendingOperation = null
@@ -176,7 +188,11 @@ class MultistepSolverController {
         throw Error(`Unexpected operator: ${token}`)
       }
 
-      this.addParsedOperator(token as TermOp, isLeftSide)
+      if (token === '+' || token === '-') {
+        pendingSign = token === '+'
+      } else {
+        this.addParsedOperator(token as TermOp, isLeftSide)
+      }
       expectingValue = true
     }
 
