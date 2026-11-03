@@ -10,19 +10,26 @@
  *  - Wrong answer: time penalty (see ScoreController) and no flawless bonus.
  *  - Final score = multiplier × weighted correct answers × seconds left,
  *    × 1.2 if the player never answered wrong.
- *  - Time runs out = caught = 0 points.
+ *  - Time runs out = caught = 0 points, no more rooms can be solved,
+ *    and the run is not flawless.
  *  - Money does NOT affect score (it's for buying skins later).
  */
 
-export type Difficulty = "easy" | "medium" | "hard";
+/** Same numbers as getQuestion(difficulty): 0 = easy, 1 = medium, 2 = hard. */
+export enum Difficulty {
+  Easy = 0,
+  Medium = 1,
+  Hard = 2,
+}
+
 export type RoomKind = "main" | "bonus";
 
 export const DEFAULT_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 
 export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
-  easy: 1,
-  medium: 3,
-  hard: 6,
+  [Difficulty.Easy]: 1,
+  [Difficulty.Medium]: 3,
+  [Difficulty.Hard]: 6,
 };
 
 /** How many "correct answers" a solved room counts as in the score formula. */
@@ -71,8 +78,8 @@ export class ScoreModel {
   private timeRemainingMs: number;
 
   constructor(options: ScoreOptions = {}) {
-    const { difficulty = "easy", timeLimitMs = DEFAULT_TIME_LIMIT_MS } = options;
-    if (!(difficulty in DIFFICULTY_MULTIPLIER)) {
+    const { difficulty = Difficulty.Easy, timeLimitMs = DEFAULT_TIME_LIMIT_MS } = options;
+    if (!isDifficulty(difficulty)) {
       throw new RangeError(`unknown difficulty: ${difficulty}`);
     }
     if (!Number.isFinite(timeLimitMs) || timeLimitMs <= 0) {
@@ -138,14 +145,18 @@ export class ScoreModel {
     return this.isTimeUp();
   }
 
-  /** Never answered wrong (and solved at least one room). */
+  /** Never answered wrong, solved at least one room, and wasn't caught. */
   isFlawless(): boolean {
-    return this.incorrectAnswers === 0 && this.getRoomsSolved() > 0;
+    return this.incorrectAnswers === 0 && this.getRoomsSolved() > 0 && !this.isCaught();
   }
 
-  /** Player solved a room's question. Returns the money earned. */
+  /**
+   * Player solved a room's question. Returns the money earned.
+   * Once time is up the solve is rejected: nothing is counted and 0 is returned.
+   */
   recordRoomSolved(kind: RoomKind): number {
     if (!(kind in ROOM_MONEY)) throw new RangeError(`unknown room kind: ${kind}`);
+    if (this.isTimeUp()) return 0;
     if (kind === "bonus") this.bonusRoomsSolved += 1;
     else this.mainRoomsSolved += 1;
     const earned = ROOM_MONEY[kind] * this.getMultiplier();
@@ -190,4 +201,9 @@ export class ScoreModel {
       score: this.calculateScore(),
     };
   }
+}
+
+/** True for 0, 1 or 2 (Difficulty.Easy / Medium / Hard). */
+export function isDifficulty(value: unknown): value is Difficulty {
+  return typeof value === "number" && value in DIFFICULTY_MULTIPLIER;
 }

@@ -14,7 +14,7 @@ export const WRONG_ANSWER_PENALTY_SECONDS = 60;
  *   returnToMap() → clock pauses (top-down map view)
  *
  * Usage:
- *   const score = new ScoreController(new ScoreModel({ difficulty: "medium" }));
+ *   const score = new ScoreController(new ScoreModel({ difficulty: Difficulty.Medium }));
  *   score.onChange((m) => hud.render(m));
  *   score.onTimeUp(() => showEndScreen());
  *   score.pauseWhenHidden();
@@ -120,6 +120,7 @@ export class ScoreController {
   /** Stops the clock for good (e.g. when leaving the game). */
   dispose(): void {
     this.stopInterval();
+    this.inRoom = false;
     this.changeListeners = [];
     this.timeUpListeners = [];
   }
@@ -156,7 +157,7 @@ export class ScoreController {
     this.stopInterval();
     const listeners = this.timeUpListeners;
     this.timeUpListeners = []; // fire only once
-    listeners.forEach((l) => l(this.model));
+    listeners.forEach((l) => this.safeCall(l));
   }
 
   private stopInterval(): void {
@@ -167,6 +168,15 @@ export class ScoreController {
   }
 
   private emitChange(): void {
-    this.changeListeners.forEach((l) => l(this.model));
+    this.changeListeners.forEach((l) => this.safeCall(l));
+  }
+
+  /** Runs a listener so that an error in it can't stop the timer or the game ending. */
+  private safeCall(listener: ScoreListener): void {
+    try {
+      listener(this.model);
+    } catch (err) {
+      console.error("Score listener threw an error:", err);
+    }
   }
 }

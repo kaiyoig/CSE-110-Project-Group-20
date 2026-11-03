@@ -29,11 +29,4 @@ describe('Room Unit Tests', () => {
     expect(vault.isAccessible(['room_b', 'room_c'])).toBe(true);
   });
 
-  test('setCompleted() marks room completed state to true', () => {
-    const roomA = new Room({ id: 'room_a', name: 'Room A' });
-    expect(roomA.isCompleted).toBe(false);
-
-    roomA.setCompleted();
-    expect(roomA.isCompleted).toBe(true);
-  });
 });

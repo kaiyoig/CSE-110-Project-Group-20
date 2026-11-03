@@ -1,4 +1,4 @@
-import type { Difficulty } from "./ScoreModel";
+import { isDifficulty, type Difficulty } from "./ScoreModel";
 
 /**
  * Leaderboard backed by localStorage (no login yet).
@@ -32,18 +32,22 @@ export class Leaderboard {
   }
 
   private readAll(): LeaderboardEntry[] {
-    const raw = this.storage.getItem(LEADERBOARD_KEY);
-    if (!raw) return [];
     try {
+      // getItem itself can throw (e.g. storage disabled), so it's inside the try too
+      const raw = this.storage.getItem(LEADERBOARD_KEY);
+      if (!raw) return [];
       const parsed: unknown = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
       return parsed.filter(isEntry).sort(compareEntries);
     } catch {
-      return []; // corrupted data — start fresh rather than crash
+      return []; // unreadable or corrupted data — show an empty board rather than crash
     }
   }
 
-  /** Adds an entry and returns its rank within its difficulty (1-based), or null if it didn't make the board. */
+  /**
+   * Adds an entry and returns its rank within its difficulty (1-based).
+   * Returns null if it didn't make the board, or if saving failed (e.g. storage full).
+   */
   addEntry(entry: Omit<LeaderboardEntry, "date"> & { date?: string }): number | null {
     const name = entry.playerName.trim() || "Anonymous";
     const full: LeaderboardEntry = {
@@ -60,13 +64,22 @@ export class Leaderboard {
       .sort(compareEntries)
       .slice(0, this.maxEntries);
     const others = all.filter((e) => e.difficulty !== full.difficulty);
-    this.storage.setItem(LEADERBOARD_KEY, JSON.stringify([...others, ...sameDifficulty]));
+    try {
+      this.storage.setItem(LEADERBOARD_KEY, JSON.stringify([...others, ...sameDifficulty]));
+    } catch (err) {
+      console.error("Could not save the leaderboard:", err);
+      return null;
+    }
     const index = sameDifficulty.indexOf(full);
     return index === -1 ? null : index + 1;
   }
 
   clear(): void {
-    this.storage.removeItem(LEADERBOARD_KEY);
+    try {
+      this.storage.removeItem(LEADERBOARD_KEY);
+    } catch (err) {
+      console.error("Could not clear the leaderboard:", err);
+    }
   }
 }
 
@@ -80,7 +93,7 @@ function isEntry(value: unknown): value is LeaderboardEntry {
     typeof e === "object" &&
     e !== null &&
     typeof e.playerName === "string" &&
-    (e.difficulty === "easy" || e.difficulty === "medium" || e.difficulty === "hard") &&
+    isDifficulty(e.difficulty) &&
     Number.isFinite(e.score) &&
     Number.isFinite(e.timeSpentMs) &&
     e.timeSpentMs >= 0 &&
