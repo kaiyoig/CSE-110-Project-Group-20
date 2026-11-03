@@ -59,7 +59,11 @@ class TextInput extends Konva.Group {
     this.input.className = this.ghostTextClass
     this.input.placeholder = options.ghostText ?? ''
     this.input.autocomplete = 'off'
-    this.input.style.position = 'absolute'
+    // Positioning is calculated from getBoundingClientRect(), which uses
+    // viewport coordinates. Fixed positioning keeps the HTML overlay in that
+    // same coordinate system and prevents document/body offsets from shifting
+    // it away from the Konva rectangle.
+    this.input.style.position = 'fixed'
     this.input.style.boxSizing = 'border-box'
     this.input.style.border = 'none'
     this.input.style.outline = 'none'
@@ -69,8 +73,7 @@ class TextInput extends Konva.Group {
     this.input.style.color = options.foregroundColor
     const inputWidth = Math.max(1, options.width - TextInput.OUTLINE_WIDTH * 2)
     const inputHeight = Math.max(1, options.height - TextInput.OUTLINE_WIDTH * 2)
-    this.input.style.fontSize = `${Math.max(1, Math.floor(inputHeight * 0.5))}px`
-    this.input.style.lineHeight = `${inputHeight}px`
+    this.setTextMetrics(inputHeight)
     this.input.style.height = `${inputHeight}px`
     this.input.style.width = `${inputWidth}px`
     this.input.style.display = 'none'
@@ -169,32 +172,36 @@ class TextInput extends Konva.Group {
     const inset = TextInput.OUTLINE_WIDTH
 
     if (!stage) {
-      const absolutePosition = this.getAbsolutePosition()
-      const inputWidth = Math.max(1, this.width() - inset * 2)
-      const inputHeight = Math.max(1, this.height() - inset * 2)
-      this.input.style.left = `${absolutePosition.x + inset}px`
-      this.input.style.top = `${absolutePosition.y + inset}px`
+      const rectangle = this.background.getClientRect()
+      const inputWidth = Math.max(1, rectangle.width - inset * 2)
+      const inputHeight = Math.max(1, rectangle.height - inset * 2)
+      this.input.style.left = `${rectangle.x + inset}px`
+      this.input.style.top = `${rectangle.y + inset}px`
       this.input.style.width = `${inputWidth}px`
       this.input.style.height = `${inputHeight}px`
-      this.input.style.fontSize = `${Math.max(1, Math.floor(inputHeight * 0.5))}px`
-      this.input.style.lineHeight = `${inputHeight}px`
+      this.setTextMetrics(inputHeight)
       return
     }
 
     const contentRect = stage.getContent().getBoundingClientRect()
     const scaleX = contentRect.width / stage.width()
     const scaleY = contentRect.height / stage.height()
-    const absolutePosition = this.getAbsolutePosition(stage)
-    const rectangleWidth = this.width() * scaleX
-    const rectangleHeight = this.height() * scaleY
-    const inputWidth = Math.max(1, rectangleWidth - inset * 2)
-    const inputHeight = Math.max(1, rectangleHeight - inset * 2)
-    this.input.style.left = `${contentRect.left + absolutePosition.x * scaleX + inset}px`
-    this.input.style.top = `${contentRect.top + absolutePosition.y * scaleY + inset}px`
+    const rectangle = this.background.getClientRect({ relativeTo: stage })
+    const inputWidth = Math.max(1, rectangle.width - inset * 2) * scaleX
+    const inputHeight = Math.max(1, rectangle.height - inset * 2) * scaleY
+    this.input.style.left = `${contentRect.left + (rectangle.x + inset) * scaleX}px`
+    this.input.style.top = `${contentRect.top + (rectangle.y + inset) * scaleY}px`
     this.input.style.width = `${inputWidth}px`
     this.input.style.height = `${inputHeight}px`
-    this.input.style.fontSize = `${Math.max(1, Math.floor(inputHeight * 0.5))}px`
-    this.input.style.lineHeight = `${inputHeight}px`
+    this.setTextMetrics(inputHeight)
+  }
+
+  private setTextMetrics(inputHeight: number): void {
+    const fontSize = Math.max(1, Math.floor(inputHeight * 0.5))
+    const verticalPadding = Math.max(0, (inputHeight - fontSize) / 2)
+    this.input.style.padding = `${verticalPadding}px 6px`
+    this.input.style.fontSize = `${fontSize}px`
+    this.input.style.lineHeight = `${fontSize}px`
   }
 }
 
