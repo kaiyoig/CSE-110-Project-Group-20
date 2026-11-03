@@ -22,6 +22,7 @@ export interface BasicMultistepPuzzleOptions {
   inputHeight?: number
 }
 
+/** Self-contained composition of the multistep solver and its input controls. */
 class BasicMultistepPuzzle {
   private static readonly DROP_ZONE_SIZE = 100
 
@@ -34,6 +35,11 @@ class BasicMultistepPuzzle {
   /** Called when the puzzle reaches its Finished state. */
   public onPuzzleFinished?: (solved: boolean) => void
 
+  /**
+   * Creates and initializes a puzzle.
+   * @param equation Initial equation string.
+   * @param options Layer, panel, control, and spacing options.
+   */
   constructor(equation: string, options: BasicMultistepPuzzleOptions) {
     this.validateOptions(options)
     this.options = options

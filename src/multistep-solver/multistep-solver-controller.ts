@@ -11,6 +11,7 @@ interface PendingOperation {
   accepted: boolean
 }
 
+/** Coordinates equation input, model changes, and solver-view state. */
 class MultistepSolverController {
   private readonly model: MultistepSolverModel
   private readonly view: MultistepSolverView
@@ -27,6 +28,7 @@ class MultistepSolverController {
     isLastStep: boolean,
   ) => void
 
+  /** Creates a controller for a model and view. @param model Equation model. @param view Solver view. */
   constructor(model: MultistepSolverModel, view: MultistepSolverView) {
     this.model = model
     this.view = view
@@ -42,10 +44,12 @@ class MultistepSolverController {
     this.onStateChange?.(state)
   }
 
+  /** Returns the current controller state. @returns Current state. */
   public getState(): MultistepSolverState {
     return this.state
   }
 
+  /** Parses and loads a new equation. @param equationString Equation to load. */
   public setEquation(equationString: string): void {
     const sides = equationString.split('=')
     if (sides.length !== 2) {
@@ -71,6 +75,7 @@ class MultistepSolverController {
     }
   }
 
+  /** Records a dropped term and enters operation mode. @param index Term index. @param isLeftSide Whether the term is on the left. */
   public operation(index: number, isLeftSide: boolean): void {
     if (this.state === 'Arithmetic' || this.state === 'Finished') return
 
@@ -81,6 +86,7 @@ class MultistepSolverController {
     this.setState('Operation')
   }
 
+  /** Records a request to remove a special leading negative sign. @param isLeftSide Whether the sign is on the left. */
   public removeNegativeSign(isLeftSide: boolean): void {
     if (this.state === 'Arithmetic' || this.state === 'Finished') return
 
@@ -88,6 +94,7 @@ class MultistepSolverController {
     this.setState('Operation')
   }
 
+  /** Validates a requested move operation. @param operation Submitted operation. */
   public moveRequest(operation: TermOp): void {
     if (this.state !== 'Operation' || !this.pendingOperation) return
 
@@ -102,6 +109,7 @@ class MultistepSolverController {
     this.onAnswerSubmit?.(this.equation, operation, expectedOperation, false)
   }
 
+  /** Validates a submitted arithmetic answer. @param answer Submitted answer. */
   public arithmetic(answer: string): void {
     if (this.state !== 'Arithmetic') return
 
@@ -117,6 +125,7 @@ class MultistepSolverController {
     this.onAnswerSubmit?.(this.equation, answer, correctAnswer, isLastStep)
   }
 
+  /** Applies the currently accepted operation or arithmetic answer. */
   public step(): void {
     if (this.state === 'Finished') return
 
@@ -149,6 +158,7 @@ class MultistepSolverController {
     }
   }
 
+  /** Ends the puzzle as failed. */
   public fail(): void {
     this.pendingOperation = null
     this.arithmeticAnswerAccepted = false

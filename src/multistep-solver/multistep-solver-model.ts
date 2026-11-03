@@ -22,6 +22,7 @@ interface ArithmeticProblem {
   replacement: Array<Term>
 }
 
+/** Stores and transforms the normalized terms of a multistep equation. */
 class MultistepSolverModel {
   private leftSide: Array<Term> = []
   private rightSide: Array<Term> = []
@@ -123,14 +124,17 @@ class MultistepSolverModel {
     }
   }
 
-  addLeft(term: Term) {
+  /** Adds a normalized term to the left side. @param term Term to add. */
+  addLeft(term: Term): void {
     this.pushSide(this.leftSide, term);
   }
 
-  addRight(term: Term) {
+  /** Adds a normalized term to the right side. @param term Term to add. */
+  addRight(term: Term): void {
     this.pushSide(this.rightSide, term);
   }
 
+  /** Multiplies both sides by -1 for a sole negative variable product. @param isLeftSide Whether the selected term is on the left. */
   removeNegativeSign(isLeftSide: boolean): void {
     const side = isLeftSide ? this.leftSide : this.rightSide;
     const hasLeadingMinusOperator = side[0] === '-';
@@ -169,29 +173,35 @@ class MultistepSolverModel {
     }
   }
 
-  reset() {
+  /** Removes all terms from both sides. */
+  reset(): void {
     this.leftSide.splice(0, this.leftSide.length);
     this.rightSide.splice(0, this.rightSide.length);
   }
 
-  moveLeftTerm(index: number) {
+  /** Moves a term from the left side to the right side. @param index Model-term index. */
+  moveLeftTerm(index: number): void {
     this.moveFromSide(this.leftSide, index, this.rightSide);
     this.cleanSide(this.leftSide);
   }
 
-  moveRightTerm(index: number) {
+  /** Moves a term from the right side to the left side. @param index Model-term index. */
+  moveRightTerm(index: number): void {
     this.moveFromSide(this.rightSide, index, this.leftSide);
     this.cleanSide(this.rightSide);
   }
 
+  /** Returns the normalized left-side terms. @returns Left-side terms. */
   getLeftSide(): Array<Term> {
     return this.leftSide;
   }
 
+  /** Returns the normalized right-side terms. @returns Right-side terms. */
   getRightSide(): Array<Term> {
     return this.rightSide;
   }
 
+  /** Gets the operation required to move a term across the equals sign. @param index Model-term index. @param left Whether the term is on the left. @returns Required operation. */
   correctOperation(index: number, left: boolean): TermOp {
     let side = left ? this.leftSide : this.rightSide;
     let term = side.at(index);
@@ -486,12 +496,13 @@ class MultistepSolverModel {
     return problems.sort((left, right) => left.start - right.start);
   }
 
-  // Returns Array<[problem string, answer string]>
+  /** Finds the next arithmetic problems on both sides. @returns Problem and answer pairs. */
   arithmeticProblems(): Array<[string, string]> {
     return [...this.collectProblems(this.leftSide), ...this.collectProblems(this.rightSide)]
       .map(problem => [problem.text, problem.answer]);
   }
 
+  /** Merges one arithmetic problem into a normalized term. @param problemIndex Problem index. */
   solve(problemIndex = 0): void {
     const problems = [...this.collectProblems(this.leftSide), ...this.collectProblems(this.rightSide)];
     if (problems.length === 0) {

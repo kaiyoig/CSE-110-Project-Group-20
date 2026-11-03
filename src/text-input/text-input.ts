@@ -12,6 +12,7 @@ export interface TextInputOptions {
   ghostTextColor: string
 }
 
+/** Combines a styled Konva input rectangle with an internal HTML text input. */
 class TextInput extends Konva.Group {
   private static readonly OUTLINE_WIDTH = 2
   private static nextInputId = 0
@@ -25,6 +26,7 @@ class TextInput extends Konva.Group {
   public onTextEntered?: (text: string) => void
   public onTextFocused?: () => void
 
+  /** Creates a hidden text input overlay. @param options Input size, position, and color options. */
   constructor(options: TextInputOptions) {
     if (!Number.isFinite(options.width) || options.width <= 0) {
       throw Error('TextInput width must be a positive number.')
@@ -94,31 +96,38 @@ class TextInput extends Konva.Group {
     })
   }
 
+  /** Returns the current input text. @returns Current text. */
   public text(): string {
     return this.input.value
   }
 
+  /** Clears the input text. */
   public clear(): void {
     this.input.value = ''
   }
 
+  /** Changes the input text color. @param color New text color. */
   public textColor(color: string): void {
     this.input.style.color = color
   }
 
+  /** Changes the placeholder color. @param color New placeholder color. */
   public ghostTextColor(color: string): void {
     const style = document.getElementById(this.ghostTextClass)
     if (style) style.textContent = `.${this.ghostTextClass}::placeholder { color: ${color}; }`
   }
 
+  /** Changes the Konva background color. @param color New fill color. */
   public backgroundColor(color: string): void {
     this.background.fill(color)
   }
 
+  /** Changes the input outline color. @param color New outline color. */
   public outlineColor(color: string): void {
     this.background.stroke(color)
   }
 
+  /** Shows the input centered at the supplied position. @param x Center x. @param y Center y. @returns This input. */
   public show(x: number, y: number): this
   public show(): this
   public show(x?: number, y?: number): this {
@@ -136,6 +145,7 @@ class TextInput extends Konva.Group {
     return this
   }
 
+  /** Hides the input and disables interaction. @returns This input. */
   public hide(): this {
     this.visible(false)
     this.listening(false)
@@ -144,12 +154,14 @@ class TextInput extends Konva.Group {
     return this
   }
 
+  /** Disables typing and focus without changing visibility. */
   public disable(): void {
     this.enabled = false
     this.input.disabled = true
     this.input.style.display = 'none'
   }
 
+  /** Enables typing and focus. */
   public enable(): void {
     this.enabled = true
     this.input.disabled = false

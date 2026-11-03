@@ -18,6 +18,7 @@ export interface MultistepSolverViewOptions {
   panelColor?: string
 }
 
+/** Renders the equation, solver panel, and drag-and-drop drop zone. */
 class MultistepSolverView {
   private leftSide: Array<Block> = []
   private rightSide: Array<Block> = []
@@ -369,6 +370,12 @@ class MultistepSolverView {
     })
   }
 
+  /**
+   * Creates the solver view and adds it to the layer.
+   * @param stage Konva stage containing the layer.
+   * @param layer Layer receiving the view elements.
+   * @param options Panel and block layout options.
+   */
   constructor(stage: Konva.Stage, layer: Konva.Layer, options: MultistepSolverViewOptions) {
     if (!Number.isFinite(options.panelWidth) || options.panelWidth <= 0) {
       throw Error('MultistepSolverView panelWidth must be a positive number.')
@@ -433,18 +440,21 @@ class MultistepSolverView {
     this.centerDropzone();
   }
 
-  setPosition(x: number, y: number) {
+  /** Positions the panel centered at the given coordinates. @param x Center x. @param y Center y. */
+  setPosition(x: number, y: number): void {
     this.view.position({
       x: x - this.panelWidth / 2,
       y: y - this.panelHeight / 2,
     });
   }
 
-  panelColor(color: string) {
+  /** Changes the panel background color. @param color New fill color. */
+  panelColor(color: string): void {
     this.panel.fill(color);
   }
 
-  update(model: MultistepSolverModel) {
+  /** Synchronizes displayed blocks with the model. @param model Current equation model. */
+  update(model: MultistepSolverModel): void {
     let leftSide = model.getLeftSide();
     let rightSide = model.getRightSide();
 
@@ -461,18 +471,21 @@ class MultistepSolverView {
     this.equalSign.visible(true);
   }
 
-  showDropzone() {
+  /** Shows and enables the drop zone. */
+  showDropzone(): void {
     this.centerDropzone();
     this.dropZone.visible(true);
     this.dropZone.listening(true);
   }
 
-  hideDropzone() {
+  /** Hides and disables the drop zone. */
+  hideDropzone(): void {
     this.dropZone.visible(false);
     this.dropZone.listening(false);
   }
 
-  clearDropzone() {
+  /** Removes a dropped clone and restores the drop-zone message. */
+  clearDropzone(): void {
     if (this.blockInDrop) {
       this.blockInDrop.destroy();
       this.blockInDrop = null;

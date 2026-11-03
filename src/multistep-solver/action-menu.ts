@@ -11,6 +11,7 @@ type Operator = '+' | '-' | '*' | '/'
  *   const menu = new ActionMenu(100, 100)
  *   layer.add(menu)
  */
+/** A four-quadrant Konva menu for choosing an arithmetic operation. */
 class ActionMenu extends Konva.Group {
   public onAdditionClicked?: () => void
   public onSubtractionClicked?: () => void
@@ -23,6 +24,11 @@ class ActionMenu extends Konva.Group {
   private static readonly HOVER_COLOR = '#c7d2fe'
   private static readonly LABEL_COLOR = '#000000'
 
+  /**
+   * Creates a hidden action menu.
+   * @param width Menu width in pixels.
+   * @param height Menu height in pixels.
+   */
   constructor(width: number, height: number) {
     if (!Number.isFinite(width) || width <= 0) {
       throw Error('ActionMenu width must be a positive number.')
@@ -91,7 +97,7 @@ class ActionMenu extends Konva.Group {
     }
   }
 
-  /** Show the menu with its center at (x, y). */
+  /** Shows the menu centered at the given position. @param x Center x. @param y Center y. @returns This menu. */
   public show(x: number, y: number): this
   public show(): this
   public show(x?: number, y?: number): this {
@@ -106,7 +112,7 @@ class ActionMenu extends Konva.Group {
     return this
   }
 
-  /** Hide the menu and stop it from receiving pointer events. */
+  /** Hides the menu and stops it from receiving pointer events. @returns This menu. */
   public hide(): this {
     for (const background of this.quadrantBackgrounds) {
       background.fill(ActionMenu.BACKGROUND_COLOR)
