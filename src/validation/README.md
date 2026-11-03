@@ -3,64 +3,83 @@
 
 ## Overview
 
-The Answer Validation component checks whether a player's submitted answer is correct and stores the results for later use.
+The Answer Validation component checks whether a player's answer to a Step is correct and records every Answer for later use.
 
 It consists of two classes:
-- `AnswerValidator` - Checks answers, calls scoring methods, and sends notifications.
-- `AnswerHistory` - Stores submitted answers and their validation results.
+- `AnswerValidator` - Judges each Step's Answer, calls the Score Controller, and sends Correct/Incorrect events.
+- `AnswerHistory` - Stores every judged Answer from one Heist, in order.
+
+`Game` creates one of each and passes the history to the End Screen.
 
 ## AnswerValidator
 
-The `validateAnswer()` method accepts four parameters:
+The constructor takes:
 
-- `question`: The Question object containing the problem and final answer.
-- `playerAnswer`: The answer submitted by the player.
-- `expectedAnswer`: The correct answer for the current step.
-- `isFinalStep`: Whether the current step is the final step of the puzzle.
+- `history`: The `AnswerHistory` to record into.
+- `score`: A `ScoreActions` (the `answerIncorrect` and `roomSolved` methods of `ScoreController`).
+- `notifications`: The `NotificationManager` to send events through.
 
-If the answer is incorrect, the Score Controller deducts time.
+The `validateAnswer()` method accepts three parameters:
 
-If the answer is correct and `isFinalStep` is true, the Score Controller rewards room completion.
+- `question`: The `Question` the Room is asking.
+- `answer`: A `StepAnswer` from the puzzle:
+  - `playerAnswer`: What the player submitted for this Step.
+  - `correctAnswer`: The correct answer for this Step.
+  - `isLastStep`: Whether this Step solves the Question.
+- `kind`: The `RoomKind` (`"main"` or `"bonus"`) of the Room being solved.
 
-The validator also sends correct or incorrect events to the Notification Manager and stores the result in AnswerHistory.
+It returns whether the Answer was correct. Leading and trailing whitespace is ignored.
+
+| Answer                  | Score call               | Event       |
+| ----------------------- | ------------------------ | ----------- |
+| Incorrect (any Step)    | `answerIncorrect()`      | `Incorrect` |
+| Correct, last Step      | `roomSolved(kind)`       | `Correct`   |
+| Correct, earlier Step   | none                     | `Correct`   |
+
+Every Answer, correct or not, is recorded in `AnswerHistory`.
 
 ### Example
 
 ```ts
-const question = {
-    prompt: "5 + 3 = ?",
-    answer: "8"
-};
+const validator = new AnswerValidator(history, scoreController, notifications);
 
+const question = { prompt: "x * 2 + 3 = 11", answer: "4" };
+
+// An earlier Step: no score change
 validator.validateAnswer(
     question,
-    "8",
-    "8",
-    true
+    { playerAnswer: "-", correctAnswer: "-", isLastStep: false },
+    "main",
+);
+
+// The last Step: the Room is Solved
+validator.validateAnswer(
+    question,
+    { playerAnswer: "4", correctAnswer: "4", isLastStep: true },
+    "main",
 );
 ```
 
-For multi-step puzzles, the puzzle component provides the expected answer for the current step and determines `isFinalStep`.
+The puzzle decides each Step's `correctAnswer` and `isLastStep`. The validator only compares answers.
 
 ## AnswerHistory
 
-AnswerHistory stores the following information for each submission:
+Each `AnswerRecord` holds:
 
-- Question object
-- Expected answer for the current step
-- Player's submitted answer
-- Whether the answer was correct
+- `question`: The `Question` object
+- `playerAnswer`: The player's submitted answer
+- `correctAnswer`: The correct answer for that Step
+- `isCorrect`: Whether the answer was correct
+- `isLastStep`: Whether that Step solves the Question
 
 ### Methods
 
-- `addResult(result)` - Adds a new answer result to history.
-- `getResults()` - Returns a shallow copy of the stored results.
-
-The stored results can later be used for features such as reviewing incorrect answers at the end of the game.
+- `addResult(record)` - Adds an `AnswerRecord` to the history.
+- `getResults()` - Returns a shallow copy of the stored records, so callers can't modify the history.
 
 ## Testing
 
-Unit tests were written using Vitest.
+Unit tests are written with Vitest.
 
 To run the validation tests:
 
@@ -68,11 +87,6 @@ To run the validation tests:
 npx vitest run src/validation/
 ```
 
-The tests check correct and incorrect answers, whitespace handling, answer history, and scoring behavior for intermediate and final steps.
+The tests cover correct and incorrect Answers, whitespace handling, main and bonus Rooms, earlier versus last Steps (operation picks included), and the records stored in the history.
 
-Score Controller and Notification Manager interactions are currently tested using mocked dependencies.
-
-## Future Improvements
-
-- Add integration tests with the real Score Controller and Notification Manager.
-- Support different room types when rewarding room completion.
+The validator tests use a real `NotificationManager` and a mocked `ScoreActions`.
