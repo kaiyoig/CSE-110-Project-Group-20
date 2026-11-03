@@ -6,6 +6,7 @@ export {
   ROOM_MONEY,
   FLAWLESS_BONUS,
   Difficulty,
+  DIFFICULTY_LABEL,
   isDifficulty,
 } from "./ScoreModel";
 export type { RoomKind, ScoreOptions, ScoreSnapshot } from "./ScoreModel";
