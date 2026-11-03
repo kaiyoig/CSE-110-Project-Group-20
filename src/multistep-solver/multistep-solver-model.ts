@@ -35,6 +35,8 @@ class MultistepSolverModel {
 
     let isTermOperator = typeof term == "string";
 
+    if (isTermOperator && (term === '+' || term === '-')) return false;
+
     // The first term in a statement must be a value, not an operator
     if (topIndex < 0 && isTermOperator)
       return false;
@@ -44,7 +46,8 @@ class MultistepSolverModel {
     let top = side.at(topIndex);
 
     if (typeof top == "string" && isTermOperator) return false;
-    if (typeof top != "string" && !isTermOperator) return false;
+    if (typeof top == "string" && !isTermOperator && top !== '*' && top !== '/') return false;
+    if (typeof top != "string" && !isTermOperator) return true;
 
     return true;
   }
@@ -70,98 +73,49 @@ class MultistepSolverModel {
     }
   }
 
-  // TODO: If there is only single term on side with - sign prefix, then allow user to drag -
-  //       and 
   private moveFromSide(current: Array<Term>, index: number, newSide: Array<Term>) {
-    if (current.length == 0) {
-      throw Error("Unable to move left term at specified index.");
+    if (current.length === 0 || index < 0 || index >= current.length) {
+      throw Error("Unable to move term at specified index.");
     }
 
-    if (current.length == 1) {
-      let value = current.pop() as TermValue;
+    const selected = current[index];
+    if (typeof selected === 'string') throw Error("Can only move a value term.");
+    if (selected.term === '0' && current.length === 1) return;
 
-      if (value.term == '0') {
-        current.push(value);
-        return;
-      }
+    const previous = current[index - 1];
+    if (previous === '*' || previous === '/') {
+      const oppositeOp = this.getOppositeOp(previous);
+      const value = current[index];
+      current.splice(index - 1, 2);
 
-      const op: TermOp = value.positive ? '-' : '+';
-      value.positive = !value.positive;
+      const newSideArray = newSide.flatMap(term => {
+        if (typeof term === 'string') return term;
+        return [term, oppositeOp, value];
+      });
+      newSide.splice(0, newSide.length, ...newSideArray);
 
-      this.pushSide(newSide, op);
-      this.pushSide(newSide, value);
-
+      const currentArray = current.flatMap((term, i) => {
+        if (typeof term === 'string') return term;
+        if (i === index - 2) return term;
+        return [term, oppositeOp, value];
+      });
+      current.splice(0, current.length, ...currentArray);
       return;
     }
 
-    if (index == 0) {
-      let terms = current.splice(index, 1);
-      let value = terms[0] as TermValue;
-
-      let op: TermOp = value.positive ? '-' : '+';
-      value.positive = !value.positive;
-
-      this.pushSide(newSide, op);
-      this.pushSide(newSide, value);
-
-      // If coefficient was attached to variable, move it too
-      if (current[0] == '*' || current[0] == '/') {
-        let terms = current.splice(0, 2);
-        this.pushSide(newSide, terms[0]);
-        this.pushSide(newSide, terms[1]);
-      }
-
-      return;
+    let end = index;
+    while (end + 2 < current.length &&
+      (current[end + 1] === '*' || current[end + 1] === '/')) {
+      end += 2;
     }
 
-    let terms = current.splice(index - 1, 2);
-
-    let op = terms[0] as TermOp;
-    let value = terms[1] as TermValue;
-    let oppositeOp = this.getOppositeOp(op);
-
-    if (op == '+' || op == '-') {
-      value.positive = !value.positive;
-      this.pushSide(newSide, oppositeOp);
-      this.pushSide(newSide, value);
-
-      if (current[index - 1] == '*' || current[index - 1] == '/') {
-        let terms = current.splice(index - 1, 2);
-        this.pushSide(newSide, terms[0]);
-        this.pushSide(newSide, terms[1]);
-      }
-
-      return;
-    }
-
-    // Distribute multiplication/division to 'new side'
-    let newArray = newSide.flatMap(term => {
-      // Skip operators
-      if (typeof term == 'string') return term;
-
-      // Distribute multiplication or division to terms
-      return [term, oppositeOp, value];
-    });
-    newSide.splice(0, newSide.length, ...newArray);
-
-    // Distribute multiplication/division to 'current side'
-    newArray = current.flatMap((term, i) => {
-      // If the number multiplied or divided on both sides was a coefficient to some term,
-      // no need to apply the opposite operation to that term
-      if (i == index - 2) return term;
-
-      if (typeof term == 'string') return term;
-      return [term, oppositeOp, value];
-    });
-    current.splice(0, current.length, ...newArray);
+    const movedTerms = current.splice(index, end - index + 1);
+    const firstMovedValue = movedTerms[0] as TermValue;
+    firstMovedValue.positive = !firstMovedValue.positive;
+    newSide.push(...movedTerms);
   }
 
   private cleanSide(side: Array<Term>) {
-    // remove trailing positive sign
-    if (side[0] === '+') {
-      side.splice(0, 1);
-    }
-
     // prevent empty side
     if (side.length == 0) {
       side.push(constantTerm(0));
@@ -175,6 +129,44 @@ class MultistepSolverModel {
 
   addRight(term: Term) {
     this.pushSide(this.rightSide, term);
+  }
+
+  removeNegativeSign(isLeftSide: boolean): void {
+    const side = isLeftSide ? this.leftSide : this.rightSide;
+    const hasLeadingMinusOperator = side[0] === '-';
+    const variableIndex = hasLeadingMinusOperator ? 1 : 0;
+    const multiplicationIndex = variableIndex + 1;
+    const coefficientIndex = variableIndex + 2;
+    if (side.length !== coefficientIndex + 1 || side[multiplicationIndex] !== '*') {
+      throw Error('A negative sign can only be removed from a sole negative variable term.')
+    }
+
+    const variable = side[variableIndex];
+    const coefficient = side[coefficientIndex];
+    if (typeof variable === 'string' || variable.constant ||
+      (!hasLeadingMinusOperator && variable.positive) ||
+      typeof coefficient === 'string' || !coefficient.constant) {
+      throw Error('A negative sign can only be removed from a sole negative variable term.')
+    }
+
+    for (const equationSide of [this.leftSide, this.rightSide]) {
+      let leadingSignRemoved = false;
+      if (equationSide[0] === '-') {
+        equationSide.splice(0, 1);
+        leadingSignRemoved = true;
+        const firstValue = equationSide[0] as unknown as TermValue | undefined;
+        if (firstValue && typeof firstValue !== 'string') firstValue.positive = true;
+      }
+
+      for (let index = 0; index < equationSide.length; ++index) {
+        const term = equationSide[index];
+        if (typeof term !== 'string' &&
+          !(leadingSignRemoved && index === 0) &&
+          (index === 0 || (equationSide[index - 1] !== '*' && equationSide[index - 1] !== '/'))) {
+          term.positive = !term.positive;
+        }
+      }
+    }
   }
 
   reset() {
@@ -215,11 +207,9 @@ class MultistepSolverModel {
     term = term as TermValue;
 
     let previousOp = side[index - 1];
-    if (!previousOp) {
+    if (previousOp !== '*' && previousOp !== '/') {
       return term.positive ? '-' : '+';
     }
-
-    previousOp = previousOp as TermOp;
 
     return this.getOppositeOp(previousOp);
   }
@@ -310,12 +300,13 @@ class MultistepSolverModel {
   private expressionTerms(side: Array<Term>): Array<ExpressionTerm> {
     const terms: Array<ExpressionTerm> = [];
     let index = 0;
-    let sign = 1;
+    let leadingSign = 1;
+    const hasLeadingSign = side[0] === '+' || side[0] === '-';
 
     // A leading sign is unary. It is not an operation between two values,
     // so consume it before parsing the first expression term.
     if (side[0] === '+' || side[0] === '-') {
-      sign = side[0] === '+' ? 1 : -1;
+      leadingSign = side[0] === '+' ? 1 : -1;
       index = 1;
     }
 
@@ -328,10 +319,9 @@ class MultistepSolverModel {
       const start = index;
       let variable: string | null = first.constant ? null : first.term;
       let coefficient = first.constant ? this.parseFraction(first.term) : { numerator: 1, denominator: 1 };
-      // A value after + or - gets its sign from that operator. The model also
-      // flips positive when a value is moved across the equals sign, so using
-      // the flag here would turn `8 - 3` into `8 - -3`.
-      let valueSign = start === 0 && index === 1 && !first.positive ? -sign : sign;
+      const valueSign = hasLeadingSign && start === 1
+        ? leadingSign
+        : first.positive ? 1 : -1;
       index++;
 
       while (index < side.length) {
@@ -365,13 +355,9 @@ class MultistepSolverModel {
         sign: valueSign,
       });
 
-      if (index >= side.length) break;
-      const nextOperation = side[index];
-      if (nextOperation !== '+' && nextOperation !== '-') {
-        throw Error('Expected an addition or subtraction operator.');
+      if (index < side.length && typeof side[index] === 'string') {
+        throw Error('Expected a value after an arithmetic term.');
       }
-      sign = nextOperation === '+' ? 1 : -1;
-      index++;
     }
 
     return terms;
@@ -418,13 +404,19 @@ class MultistepSolverModel {
   }
 
   private formatTerm(side: Array<Term>, start: number, end: number): string {
-    const hasPreviousSign = start > 0 && (side[start - 1] === '+' || side[start - 1] === '-');
     return side.slice(start, end + 1).map((term, index) => {
       if (typeof term === 'string') return term;
-      const value = !term.positive && index === 0 && !hasPreviousSign
+      const value = !term.positive && index === 0
         ? `-${term.term}`
         : term.term;
       return value;
+    }).join(' ');
+  }
+
+  private formatMagnitude(side: Array<Term>, start: number, end: number): string {
+    return side.slice(start, end + 1).map(term => {
+      if (typeof term === 'string') return term;
+      return term.term;
     }).join(' ');
   }
 
@@ -479,20 +471,13 @@ class MultistepSolverModel {
       if (!this.canCombine(left, right)) continue;
 
       const combined = this.combine(left, right);
-      const hasPreviousTerm = left.start > 0 &&
-        (side[left.start - 1] === '+' || side[left.start - 1] === '-');
-      const replacement = hasPreviousTerm
-        ? [
-          combined.sign < 0 ? '-' : '+',
-          ...this.replacementTerms(combined.variable, combined.coefficient, 1),
-        ] as Array<Term>
-        : this.replacementTerms(combined.variable, combined.coefficient, combined.sign);
+      const replacement = this.replacementTerms(combined.variable, combined.coefficient, combined.sign);
 
       problems.push({
         side,
-        start: hasPreviousTerm ? left.start - 1 : left.start,
+        start: left.start,
         end: right.end,
-        text: `${this.formatTerm(side, left.start, left.end)} ${side[left.end + 1]} ${this.formatTerm(side, right.start, right.end)}`,
+        text: `${this.formatTerm(side, left.start, left.end)} ${right.sign < 0 ? '-' : '+'} ${this.formatMagnitude(side, right.start, right.end)}`,
         answer: `${combined.sign < 0 ? '-' : ''}${combined.variable === null ? this.fractionText(combined.coefficient) : `${combined.variable} * ${this.fractionText(combined.coefficient)}`}`,
         replacement,
       });
