@@ -170,6 +170,7 @@ class TextInput extends Konva.Group {
 
   /** Removes the HTML input and its placeholder style, then destroys the Konva group. @returns This input. */
   public override destroy(): this {
+    this.hide() // hidden first, so a blur during removal doesn't submit
     this.input.remove()
     document.getElementById(this.ghostTextClass)?.remove()
     return super.destroy()
