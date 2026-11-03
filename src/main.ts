@@ -1,23 +1,19 @@
 import Konva from "konva";
 import { NotificationManager } from "./notification-manager/NotificationManager";
 import { EventType } from "./notification-manager/GameEvent";
-import { Leaderboard } from "./score";
+import { Leaderboard, type Difficulty } from "./score";
 import { ScreenController } from "./screens/ScreenController";
-import type { EndScreen, MapScreen, RoomScreen, StartScreen } from "./screens/contracts";
+import { StartScreen } from "./screens/StartScreen";
+import { MapScreen } from "./screens/MapScreen";
+import { RoomScreen } from "./screens/RoomScreen";
+import { EndScreen } from "./screens/EndScreen";
 import { Game, type HeistResult } from "./game/Game";
 
 /**
  * The only place that creates app-scoped objects and connects the Heist
- * lifecycle: Start Screen → Map Screen ⇄ Room Screen → End Screen → Start Screen.
+ * lifecycle: Start Screen → Map Screen ⇄ Room Screen → End Screen → Start Screen
+ * (or straight into a new Heist).
  */
-
-/**
- * Stand-in until the screen modules land. Each owner replaces one call below
- * with `new XScreen(...)` (see src/screens/contracts.ts for the contracts).
- */
-function screenNotImplemented<T>(name: string): T {
-  throw new Error(`${name} is not implemented yet (see src/screens/contracts.ts)`);
-}
 
 const stage = new Konva.Stage({
   container: "container",
@@ -28,10 +24,10 @@ const notifications = new NotificationManager();
 const leaderboard = new Leaderboard();
 const screens = new ScreenController(stage);
 
-const startScreen = screenNotImplemented<StartScreen>("StartScreen");
-const mapScreen = screenNotImplemented<MapScreen>("MapScreen");
-const roomScreen = screenNotImplemented<RoomScreen>("RoomScreen"); // gets `notifications`
-const endScreen = screenNotImplemented<EndScreen>("EndScreen");
+const startScreen = new StartScreen(stage.width(), stage.height());
+const mapScreen = new MapScreen(stage.width(), stage.height());
+const roomScreen = new RoomScreen(stage.width(), stage.height(), notifications);
+const endScreen = new EndScreen(stage.width(), stage.height());
 
 screens.register("start", startScreen);
 screens.register("map", mapScreen);
@@ -43,11 +39,13 @@ let game: Game | null = null;
 let lastResult: HeistResult | null = null;
 let scoreSaved = false;
 
-startScreen.onStart((difficulty) => {
+function startHeist(difficulty: Difficulty): void {
   game?.dispose();
   game = new Game(difficulty, { notifications, screens, mapScreen, roomScreen });
   game.start();
-});
+}
+
+startScreen.onStart((difficulty) => startHeist(difficulty));
 
 notifications.subscribe(EventType.GameOver, () => {
   if (!game) return;
@@ -69,5 +67,9 @@ endScreen.onSaveScore((playerName) => {
 });
 
 endScreen.onPlayAgain(() => {
+  if (lastResult) startHeist(lastResult.snapshot.difficulty);
+});
+
+endScreen.onBackToStart(() => {
   screens.show("start");
 });
