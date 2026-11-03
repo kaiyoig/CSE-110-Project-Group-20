@@ -21,7 +21,7 @@ describe("formatMoney", () => {
     expect(formatMoney(1234.5)).toBe("$1,234.50");
     expect(formatMoney(0)).toBe("$0.00");
   });
-  it.each([-50, NaN, Infinity])("shows $0.00 for invalid input %s", (bad) => {
+  it.each([-50, NaN, Infinity])("shows $0.00 for invalid input %s", (bad: number) => {
     expect(formatMoney(bad)).toBe("$0.00");
   });
 });

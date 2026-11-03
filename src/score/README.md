@@ -3,13 +3,14 @@
 Everything lives in `src/score/`. Import from the folder:
 
 ```ts
-import { ScoreModel, ScoreController, Leaderboard, formatTime, formatMoney } from "./score";
+import { ScoreModel, ScoreController, Leaderboard, Difficulty, formatTime, formatMoney } from "./score";
 ```
 
 ## Setup (once, when the game starts)
 
 ```ts
-const score = new ScoreController(new ScoreModel({ difficulty: "medium" })); // "easy" | "medium" | "hard"
+// Difficulty uses the same numbers as getQuestion(): 0 = Easy, 1 = Medium, 2 = Hard
+const score = new ScoreController(new ScoreModel({ difficulty: Difficulty.Medium }));
 score.pauseWhenHidden();                         // pause when the tab is switched
 score.onChange((m) => updateHud(m));             // HUD: time + money
 score.onTimeUp(() => showEndScreen(score.getModel().snapshot())); // caught
@@ -22,16 +23,17 @@ score.onTimeUp(() => showEndScreen(score.getModel().snapshot())); // caught
 | **Calista** (map) | Player enters a room | `score.enterRoom()` |
 | **Calista** (map) | Player goes back to the map | `score.returnToMap()` |
 | **Calista** (map) | Vault solved, player escapes | `showEndScreen(score.getModel().snapshot())` |
-| **Brian** (validation) | Answer is right | `score.roomSolved("main")` or `score.roomSolved("bonus")` |
-| **Brian** (validation) | Answer is wrong | `score.answerIncorrect()` |
+| **Brian** (validation) | A step is submitted and **wrong** | `score.answerIncorrect()` |
+| **Brian** (validation) | A step is right but the room isn't finished | nothing |
+| **Brian** (validation) | The **last** step is right (room done) | `score.roomSolved("main")` or `score.roomSolved("bonus")` |
 | **Seven** (HUD) | Show time / money | `formatTime(m.getTimeRemainingMs())`, `formatMoney(m.getMoney())` |
 | **Asad** (end screen) | Show results | use the `snapshot()` object (below) |
 
 ## Things to watch out for
 
 - **The clock only runs inside rooms.** Please call `enterRoom()` / `returnToMap()` every time — otherwise time won't move (or won't stop).
-- **One room = one question.** Call `roomSolved()` once per room, not once per drag-and-drop piece.
-- **Drag and drop:** the whole answer is right or wrong. If any slot is wrong when the player submits, that's one `answerIncorrect()`.
+- **One room = one question, but it can have several steps.** Every wrong step submission costs time (`answerIncorrect()`). Call `roomSolved()` only once, when the whole room is finished.
+- **Rooms can't be solved after time is up** (`roomSolved()` returns 0 and nothing is counted).
 - **Don't change money or time directly.** Always go through `ScoreController` so the HUD gets updated.
 - **Two endings:** `onTimeUp` only fires when the player is caught. A successful escape is triggered by the map (Vault). Both pass the same `snapshot()`.
 
@@ -39,13 +41,13 @@ score.onTimeUp(() => showEndScreen(score.getModel().snapshot())); // caught
 
 ```ts
 {
-  caught,            // true = time ran out (score is 0)
+  caught,            // true = time ran out (score is 0, not flawless)
   score,             // final score
   money,             // money earned
   flawless,          // no wrong answers (show an achievement?)
   roomsSolved, bonusRoomsSolved, incorrectAnswers,
   timeSpentMs,       // show with formatTime()
-  difficulty,        // "easy" | "medium" | "hard"
+  difficulty,        // Difficulty.Easy / Medium / Hard (0 / 1 / 2)
 }
 ```
 
@@ -57,8 +59,8 @@ The end/leaderboard screen should show three tabs (or a difficulty picker).
 
 ```ts
 const board = new Leaderboard();                       // saved in localStorage
-const rank = board.addEntry({ playerName, difficulty, score, timeSpentMs }); // returns rank, or null
-board.getEntries("hard");                              // top 10, highest score first
+const rank = board.addEntry({ playerName, difficulty, score, timeSpentMs }); // rank, or null (didn't make it / couldn't save)
+board.getEntries(Difficulty.Hard);                              // top 10, highest score first
 ```
 
 Don't save a caught run (score 0) unless we decide otherwise.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ScoreModel } from "./ScoreModel";
+import { ScoreModel, Difficulty } from "./ScoreModel";
 import { ScoreController, WRONG_ANSWER_PENALTY_SECONDS } from "./ScoreController";
 
 describe("ScoreController", () => {
@@ -60,7 +60,7 @@ describe("ScoreController", () => {
   });
 
   it("solving a room adds money and notifies listeners", () => {
-    const c = new ScoreController(new ScoreModel({ difficulty: "hard" }));
+    const c = new ScoreController(new ScoreModel({ difficulty: Difficulty.Hard }));
     const listener = vi.fn();
     c.onChange(listener);
     expect(c.roomSolved("main")).toBe(600);
@@ -86,6 +86,40 @@ describe("ScoreController", () => {
     c.onTimeUp(timeUp);
     c.answerIncorrect(5);
     expect(timeUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispose() stops the clock and leaves the room", () => {
+    const c = make();
+    c.enterRoom();
+    c.dispose();
+    expect(c.isRunning()).toBe(false);
+    expect(c.isInRoom()).toBe(false);
+    vi.advanceTimersByTime(3000);
+    expect(remaining(c)).toBe(10_000);
+  });
+
+  it("a listener that throws doesn't stop the game from ending", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const c = make(3000);
+    const timeUp = vi.fn();
+    const goodListener = vi.fn();
+    c.onChange(() => {
+      throw new Error("broken HUD");
+    });
+    c.onChange(goodListener);
+    c.onTimeUp(() => {
+      throw new Error("broken end screen");
+    });
+    c.onTimeUp(timeUp);
+
+    c.enterRoom();
+    vi.advanceTimersByTime(5000);
+
+    expect(goodListener).toHaveBeenCalled();
+    expect(timeUp).toHaveBeenCalledTimes(1);
+    expect(c.isRunning()).toBe(false);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   describe("pauseWhenHidden", () => {
