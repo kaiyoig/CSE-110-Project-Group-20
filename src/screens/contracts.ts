@@ -2,7 +2,7 @@ import type { Screen } from "./ScreenController";
 import type { Question, StepAnswer } from "../questions/Question";
 import type { Room } from "../map/Room";
 import type { AccessDeniedPayload } from "../map/MapController";
-import type { Difficulty, LeaderboardEntry } from "../score";
+import type { AddEntryResult, Difficulty, LeaderboardEntry } from "../score";
 import type { HeistResult } from "../game/Game";
 
 /**
@@ -42,6 +42,8 @@ export interface EndScreen extends Screen {
   setResult(result: HeistResult, leaderboard: LeaderboardEntry[]): void;
   /** Only offered when result.outcome === "escaped". */
   onSaveScore(cb: (playerName: string) => void): Unsubscribe;
+  /** One line saying how saving went (rank, didn't make the board, or failed). */
+  showSaveResult(result: AddEntryResult): void;
   /** A new Heist at the same Difficulty. */
   onPlayAgain(cb: () => void): Unsubscribe;
   onBackToStart(cb: () => void): Unsubscribe;

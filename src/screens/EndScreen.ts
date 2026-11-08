@@ -1,7 +1,7 @@
 import Konva from "konva";
 import TextInput from "../text-input/text-input";
 import { DIFFICULTY_LABEL, formatMoney, formatTime } from "../score";
-import type { LeaderboardEntry } from "../score";
+import type { AddEntryResult, LeaderboardEntry } from "../score";
 import type { HeistResult } from "../game/Game";
 import type { EndScreen as EndScreenContract, Unsubscribe } from "./contracts";
 import { DESIGN_WIDTH, fitLayer } from "./layout";
@@ -32,6 +32,8 @@ export class EndScreen implements EndScreenContract {
   private readonly boardRows = new Konva.Group({ listening: false });
   private readonly nameBox: Konva.Group;
   private readonly nameInput: TextInput;
+  /** Where the name box was: how saving went, once the player has saved. */
+  private readonly saveMessage: Konva.Text;
 
   private result: HeistResult | null = null;
   /** True once this result's score has been handed to onSaveScore. */
@@ -87,6 +89,15 @@ export class EndScreen implements EndScreenContract {
     }));
     this.layer.add(this.nameBox);
 
+    this.saveMessage = createText({
+      x: STATS.x, y: NAME_BOX.y - NAME_BOX.height / 2, width: STATS.width + 120,
+      fontSize: 26,
+      visible: false,
+      listening: false,
+      name: "save-message",
+    });
+    this.layer.add(this.saveMessage);
+
     this.nameInput = new TextInput({
       layer: this.layer,
       x: NAME_BOX.x,
@@ -121,6 +132,7 @@ export class EndScreen implements EndScreenContract {
       this.result = result;
       this.saved = false;
       this.nameInput.clear();
+      this.saveMessage.visible(false);
     }
 
     const { outcome, snapshot } = result;
@@ -145,6 +157,26 @@ export class EndScreen implements EndScreenContract {
 
   onSaveScore(cb: (playerName: string) => void): Unsubscribe {
     return this.saves.add(cb);
+  }
+
+  showSaveResult(result: AddEntryResult): void {
+    const difficulty = this.result ? DIFFICULTY_LABEL[this.result.snapshot.difficulty] : "";
+    switch (result.status) {
+      case "ranked":
+        this.saveMessage.text(`Saved! You're #${result.rank} on the ${difficulty} leaderboard.`);
+        this.saveMessage.fill(COLORS.green);
+        break;
+      case "notRanked":
+        this.saveMessage.text(`Not on the ${difficulty} leaderboard this time. Try again!`);
+        this.saveMessage.fill(COLORS.gold);
+        break;
+      case "saveFailed":
+        this.saveMessage.text("Couldn't save your score: browser storage is full or blocked.");
+        this.saveMessage.fill(COLORS.red);
+        break;
+    }
+    this.saveMessage.visible(true);
+    this.layer.batchDraw();
   }
 
   onPlayAgain(cb: () => void): Unsubscribe {

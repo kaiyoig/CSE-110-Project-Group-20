@@ -62,8 +62,9 @@ endScreen.onSaveScore((playerName) => {
   if (!lastResult || lastResult.outcome !== "escaped" || scoreSaved) return;
   scoreSaved = true;
   const { difficulty, score, timeSpentMs } = lastResult.snapshot;
-  leaderboard.addEntry({ playerName, difficulty, score, timeSpentMs });
+  const saveResult = leaderboard.addEntry({ playerName, difficulty, score, timeSpentMs });
   endScreen.setResult(lastResult, leaderboard.getEntries(difficulty));
+  endScreen.showSaveResult(saveResult);
 });
 
 endScreen.onPlayAgain(() => {

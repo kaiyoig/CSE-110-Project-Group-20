@@ -80,6 +80,7 @@ const board = new Leaderboard();                       // saved in localStorage
 const result = board.addEntry({ playerName, difficulty, score, timeSpentMs });
 // result.status: "ranked" (with result.rank), "notRanked" (not top 10, nothing saved),
 // or "saveFailed" (storage refused it, e.g. full)
+endScreen.showSaveResult(result); // main.ts does this: one line on the End Screen
 board.getEntries(Difficulty.Hard);                     // top 10, highest score first
 ```
 
