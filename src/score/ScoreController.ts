@@ -1,4 +1,7 @@
 import { ScoreModel, type RoomKind } from "./ScoreModel";
+import { secondsToMs } from "./time";
+import type { NotificationManager } from "../notification-manager/NotificationManager";
+import { EventType } from "../notification-manager/GameEvent";
 
 export type ScoreListener = (model: ScoreModel) => void;
 
@@ -6,22 +9,22 @@ export type ScoreListener = (model: ScoreModel) => void;
 export const WRONG_ANSWER_PENALTY_SECONDS = 60;
 
 /**
- * ScoreController — drives the countdown and is the only thing other
- * systems should call to change money, time, or answer counts.
+ * ScoreController — drives the countdown and is the only thing that
+ * changes money, time, or answer counts.
  *
- * The clock only runs while the player is inside a puzzle room:
- *   enterRoom()   → clock runs
- *   returnToMap() → clock pauses (top-down map view)
+ * Other systems don't call it directly. They send events through the
+ * NotificationManager, and listenTo() turns those events into score changes:
+ *   RoomEntered    → enterRoom()        clock runs
+ *   ReturnedToMap  → returnToMap()      clock pauses (top-down map view)
+ *   Incorrect      → answerIncorrect()  time penalty
+ *   RoomSolved     → roomSolved(kind)   money + correct answer
  *
  * Usage:
  *   const score = new ScoreController(new ScoreModel({ difficulty: Difficulty.Medium }));
+ *   score.listenTo(notifications);
  *   score.onChange((m) => hud.render(m));
  *   score.onTimeUp(() => showEndScreen());
  *   score.pauseWhenHidden();
- *   // player clicks a room:  score.enterRoom();
- *   // answer right:          score.roomSolved("main")  (or "bonus")
- *   // answer wrong:          score.answerIncorrect();
- *   // back to map:           score.returnToMap();
  */
 export class ScoreController {
   private readonly model: ScoreModel;
@@ -34,6 +37,7 @@ export class ScoreController {
   private tabHidden = false;
   private changeListeners: ScoreListener[] = [];
   private timeUpListeners: ScoreListener[] = [];
+  private eventUnsubscribers: (() => void)[] = [];
 
   constructor(model: ScoreModel, tickMs: number = 1000, now: () => number = () => Date.now()) {
     this.model = model;
@@ -76,7 +80,7 @@ export class ScoreController {
 
   answerIncorrect(penaltySeconds: number = WRONG_ANSWER_PENALTY_SECONDS): void {
     this.syncElapsed();
-    this.model.recordIncorrect(penaltySeconds * 1000);
+    this.model.recordIncorrect(secondsToMs(penaltySeconds));
     this.emitChange();
     this.checkTimeUp();
   }
@@ -84,9 +88,30 @@ export class ScoreController {
   /** Generic time penalty not tied to a wrong answer (e.g. using a hint). */
   deductTime(seconds: number): void {
     this.syncElapsed();
-    this.model.removeTime(seconds * 1000);
+    this.model.removeTime(secondsToMs(seconds));
     this.emitChange();
     this.checkTimeUp();
+  }
+
+  /**
+   * Subscribes to the game events that change the score (see the table at the
+   * top of this class). Returns a function that stops listening; dispose()
+   * also stops listening.
+   */
+  listenTo(notifications: NotificationManager): () => void {
+    const unsubscribers = [
+      notifications.subscribe(EventType.RoomEntered, () => this.enterRoom()),
+      notifications.subscribe(EventType.ReturnedToMap, () => this.returnToMap()),
+      notifications.subscribe(EventType.Incorrect, () => this.answerIncorrect()),
+      notifications.subscribe(EventType.RoomSolved, (event) => {
+        if (event.eventType === EventType.RoomSolved) this.roomSolved(event.roomKind);
+      }),
+    ];
+    this.eventUnsubscribers.push(...unsubscribers);
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      this.eventUnsubscribers = this.eventUnsubscribers.filter((u) => !unsubscribers.includes(u));
+    };
   }
 
   onChange(listener: ScoreListener): () => void {
@@ -117,8 +142,9 @@ export class ScoreController {
     return () => doc.removeEventListener("visibilitychange", handler);
   }
 
-  /** Stops the clock for good (e.g. when leaving the game). */
+  /** Stops the clock and all events for good (e.g. when the Heist ends). */
   dispose(): void {
+    this.eventUnsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
     this.stopInterval();
     this.inRoom = false;
     this.changeListeners = [];

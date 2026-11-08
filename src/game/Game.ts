@@ -82,12 +82,14 @@ export class Game {
 
     // ScoreModel validates the value and throws a RangeError for an unknown difficulty.
     this.score = new ScoreController(new ScoreModel({ difficulty }));
-    this.map = new MapController(this.score);
+    // The score changes only through events; score.dispose() unsubscribes.
+    this.score.listenTo(this.notifications);
+    this.map = new MapController(this.notifications);
     this.rooms = ROOM_LAYOUT.map(
       (r) => new Room({ ...r, question: getQuestion(difficulty) }),
     );
     this.rooms.forEach((room) => this.map.registerRoom(room));
-    this.validator = new AnswerValidator(this.history, this.score, this.notifications);
+    this.validator = new AnswerValidator(this.history, this.notifications);
 
     this.wire();
   }
@@ -118,10 +120,10 @@ export class Game {
     // defence, since the screens outlive the Heist.
     this.cleanups.push(
       this.mapScreen.onRoomClick((id) => {
-        if (!this.ended) this.map.clickRoomButton(id); // map calls score.enterRoom()
+        if (!this.ended) this.map.clickRoomButton(id); // map sends RoomEntered → clock runs
       }),
       this.roomScreen.onExit(() => {
-        if (!this.ended) this.map.returnToMap(); // map calls score.returnToMap()
+        if (!this.ended) this.map.returnToMap(); // map sends ReturnedToMap → clock pauses
       }),
       this.roomScreen.onAnswer((answer) => this.handleAnswer(answer)),
     );
@@ -169,8 +171,8 @@ export class Game {
     const room = this.map.activeRoom;
     if (this.ended || !room) return;
 
-    // The validator calls the score, sends Correct/Incorrect and records the
-    // Answer. A wrong Answer can run the clock out in the middle of this call,
+    // The validator sends RoomSolved/Correct/Incorrect (the score listens to
+    // them) and records the Answer. A wrong Answer can run the clock out in the middle of this call,
     // so onTimeUp only flags the ending until the Answer has been recorded.
     this.answering = true;
     let correct: boolean;

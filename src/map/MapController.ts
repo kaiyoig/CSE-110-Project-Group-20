@@ -1,5 +1,6 @@
 import { Room } from "./Room";
-import type { ScoreController } from "../score";
+import type { NotificationManager } from "../notification-manager/NotificationManager";
+import { EventType } from "../notification-manager/GameEvent";
 
 export interface SwitchMapScreen {
   screen: string;
@@ -16,8 +17,8 @@ export interface AccessDeniedPayload {
 
 /**
  * Tracks which Room the player is in and which Rooms are Solved, and gates
- * entry by prerequisites. It starts and pauses the clock itself through the
- * ScoreController. Game connects `onScreenChange` / `onAccessDenied` to the
+ * entry by prerequisites. It sends RoomEntered / ReturnedToMap, which start
+ * and pause the clock (ScoreController listens to them). Game connects `onScreenChange` / `onAccessDenied` to the
  * screens and decides when the Heist ends.
  */
 export class MapController {
@@ -29,7 +30,7 @@ export class MapController {
   public onScreenChange: ((event: SwitchMapScreen) => void) | null = null;
   public onAccessDenied: ((payload: AccessDeniedPayload) => void) | null = null;
 
-  constructor(private readonly score: ScoreController) {}
+  constructor(private readonly notifications: NotificationManager) {}
 
   /** Ids of the Solved Rooms. */
   public get solvedRooms(): ReadonlySet<string> {
@@ -71,7 +72,7 @@ export class MapController {
     if (room.isAccessible(this.solved)) {
       this.currentScreen = room.id;
       this.activeRoom = room;
-      this.score.enterRoom();
+      this.notifications.send({ eventType: EventType.RoomEntered });
       this.onScreenChange?.({
         screen: room.id,
         room: room,
@@ -97,7 +98,7 @@ export class MapController {
   public returnToMap(): void {
     this.currentScreen = "map";
     this.activeRoom = null;
-    this.score.returnToMap();
+    this.notifications.send({ eventType: EventType.ReturnedToMap });
     this.onScreenChange?.({
       screen: "map",
       room: null,

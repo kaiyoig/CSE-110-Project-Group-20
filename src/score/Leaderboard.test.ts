@@ -35,11 +35,22 @@ describe("Leaderboard", () => {
     expect(board.getEntries(Difficulty.Easy).map((e) => e.playerName)).toEqual(["B", "C", "A"]);
   });
 
-  it("returns the rank, or null if the score didn't make the board", () => {
-    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "A", score: 50, timeSpentMs: 1 })).toBe(1);
-    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "B", score: 80, timeSpentMs: 1 })).toBe(1);
-    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "C", score: 60, timeSpentMs: 1 })).toBe(2);
-    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "D", score: 10, timeSpentMs: 1 })).toBeNull();
+  it("returns the rank when the score makes the board", () => {
+    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "A", score: 50, timeSpentMs: 1 })).toEqual({ status: "ranked", rank: 1 });
+    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "B", score: 80, timeSpentMs: 1 })).toEqual({ status: "ranked", rank: 1 });
+    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "C", score: 60, timeSpentMs: 1 })).toEqual({ status: "ranked", rank: 2 });
+  });
+
+  it("returns notRanked and writes nothing when the score doesn't make the board", () => {
+    for (const score of [50, 80, 60]) {
+      board.addEntry({ difficulty: Difficulty.Easy, playerName: "P", score, timeSpentMs: 1 });
+    }
+    const before = storage.getItem(LEADERBOARD_KEY);
+    const setItem = vi.spyOn(storage, "setItem");
+
+    expect(board.addEntry({ difficulty: Difficulty.Easy, playerName: "D", score: 10, timeSpentMs: 1 })).toEqual({ status: "notRanked" });
+    expect(setItem).not.toHaveBeenCalled();
+    expect(storage.getItem(LEADERBOARD_KEY)).toBe(before);
     expect(board.getEntries(Difficulty.Easy)).toHaveLength(3);
   });
 
@@ -58,9 +69,30 @@ describe("Leaderboard", () => {
     expect(() => board.addEntry({ difficulty: Difficulty.Easy, playerName: "A", score: 1, timeSpentMs: -1 })).toThrow(TypeError);
   });
 
-  it("recovers from corrupted storage", () => {
+  it("returns an empty board without logging when nothing is saved yet", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(board.getEntries(Difficulty.Easy)).toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("logs and recovers from data that isn't JSON", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     storage.setItem(LEADERBOARD_KEY, "{not json");
     expect(board.getEntries(Difficulty.Easy)).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
+  });
+
+  it("logs and recovers from JSON that isn't a list", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    storage.setItem(LEADERBOARD_KEY, JSON.stringify({ not: "a list" }));
+    expect(board.getEntries(Difficulty.Easy)).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
+  });
+
+  it("skips single entries with the wrong shape", () => {
     storage.setItem(LEADERBOARD_KEY, JSON.stringify([{ junk: true }]));
     expect(board.getEntries(Difficulty.Easy)).toEqual([]);
   });
@@ -68,7 +100,7 @@ describe("Leaderboard", () => {
   it("keeps a separate ranking for each difficulty", () => {
     board.addEntry({ difficulty: Difficulty.Easy, playerName: "E1", score: 900, timeSpentMs: 1 });
     board.addEntry({ difficulty: Difficulty.Hard, playerName: "H1", score: 100, timeSpentMs: 1 });
-    expect(board.addEntry({ difficulty: Difficulty.Hard, playerName: "H2", score: 50, timeSpentMs: 1 })).toBe(2);
+    expect(board.addEntry({ difficulty: Difficulty.Hard, playerName: "H2", score: 50, timeSpentMs: 1 })).toEqual({ status: "ranked", rank: 2 });
     expect(board.getEntries(Difficulty.Easy).map((e) => e.playerName)).toEqual(["E1"]);
     expect(board.getEntries(Difficulty.Hard).map((e) => e.playerName)).toEqual(["H1", "H2"]);
     expect(board.getEntries(Difficulty.Medium)).toEqual([]);
@@ -91,7 +123,8 @@ describe("Leaderboard", () => {
     expect(board.getEntries(Difficulty.Easy)).toEqual([]);
   });
 
-  it("returns an empty board if storage can't be read", () => {
+  it("logs and returns an empty board if storage can't be read", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const broken: StorageLike = {
       getItem: () => {
         throw new Error("storage disabled");
@@ -100,9 +133,11 @@ describe("Leaderboard", () => {
       removeItem: () => {},
     };
     expect(new Leaderboard(broken).getEntries(Difficulty.Easy)).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
   });
 
-  it("doesn't crash when storage is full; returns null instead", () => {
+  it("returns saveFailed (not a crash) when storage is full", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const full: StorageLike = {
       getItem: () => null,
@@ -112,7 +147,7 @@ describe("Leaderboard", () => {
       removeItem: () => {},
     };
     const fullBoard = new Leaderboard(full);
-    expect(fullBoard.addEntry({ difficulty: Difficulty.Easy, playerName: "A", score: 1, timeSpentMs: 1 })).toBeNull();
+    expect(fullBoard.addEntry({ difficulty: Difficulty.Easy, playerName: "A", score: 1, timeSpentMs: 1 })).toEqual({ status: "saveFailed" });
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });

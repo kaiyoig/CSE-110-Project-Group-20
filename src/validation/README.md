@@ -6,7 +6,7 @@
 The Answer Validation component checks whether a player's answer to a Step is correct and records every Answer for later use.
 
 It consists of two classes:
-- `AnswerValidator` - Judges each Step's Answer, calls the Score Controller, and sends Correct/Incorrect events.
+- `AnswerValidator` - Judges each Step's Answer and sends RoomSolved/Correct/Incorrect events (the score listens to them).
 - `AnswerHistory` - Stores every judged Answer from one Heist, in order.
 
 `Game` creates one of each and passes the history to the End Screen.
@@ -16,7 +16,6 @@ It consists of two classes:
 The constructor takes:
 
 - `history`: The `AnswerHistory` to record into.
-- `score`: A `ScoreActions` (the `answerIncorrect` and `roomSolved` methods of `ScoreController`).
 - `notifications`: The `NotificationManager` to send events through.
 
 The `validateAnswer()` method accepts three parameters:
@@ -30,18 +29,18 @@ The `validateAnswer()` method accepts three parameters:
 
 It returns whether the Answer was correct. Leading and trailing whitespace is ignored.
 
-| Answer                  | Score call               | Event       |
-| ----------------------- | ------------------------ | ----------- |
-| Incorrect (any Step)    | `answerIncorrect()`      | `Incorrect` |
-| Correct, last Step      | `roomSolved(kind)`       | `Correct`   |
-| Correct, earlier Step   | none                     | `Correct`   |
+| Answer                  | Events sent                          | What the score does   |
+| ----------------------- | ------------------------------------ | --------------------- |
+| Incorrect (any Step)    | `Incorrect`                          | time penalty          |
+| Correct, last Step      | `RoomSolved` `{ roomKind }`, `Correct` | money + correct answer |
+| Correct, earlier Step   | `Correct`                            | nothing               |
 
 Every Answer, correct or not, is recorded in `AnswerHistory`.
 
 ### Example
 
 ```ts
-const validator = new AnswerValidator(history, scoreController, notifications);
+const validator = new AnswerValidator(history, notifications);
 
 const question = { prompt: "x * 2 + 3 = 11", answer: "4" };
 
@@ -89,4 +88,4 @@ npx vitest run src/validation/
 
 The tests cover correct and incorrect Answers, whitespace handling, main and bonus Rooms, earlier versus last Steps (operation picks included), and the records stored in the history.
 
-The validator tests use a real `NotificationManager` and a mocked `ScoreActions`.
+The validator tests use a real `NotificationManager` and check the events it sends.

@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { AnswerHistory } from "./AnswerHistory";
-import { AnswerValidator, type ScoreActions } from "./AnswerValidator";
+import { AnswerValidator } from "./AnswerValidator";
 import { NotificationManager } from "../notification-manager/NotificationManager";
-import { EventType } from "../notification-manager/GameEvent";
+import { EventType, type GameEvent } from "../notification-manager/GameEvent";
 import type { Question, StepAnswer } from "../questions/Question";
 
 // Based on the AnswerValidator tests from #23 (brto222).
@@ -15,74 +15,65 @@ function step(playerAnswer: string, correctAnswer: string, isLastStep: boolean):
 
 describe("AnswerValidator", () => {
     let history: AnswerHistory;
-    let score: {
-        answerIncorrect: ReturnType<typeof vi.fn<ScoreActions["answerIncorrect"]>>;
-        roomSolved: ReturnType<typeof vi.fn<ScoreActions["roomSolved"]>>;
-    };
     let notifications: NotificationManager;
-    let events: EventType[];
+    let sent: GameEvent[];
     let validator: AnswerValidator;
+
+    /** The event types sent so far, in order. */
+    const types = () => sent.map((e) => e.eventType);
 
     beforeEach(() => {
         history = new AnswerHistory();
-        score = {
-            answerIncorrect: vi.fn<ScoreActions["answerIncorrect"]>(),
-            roomSolved: vi.fn<ScoreActions["roomSolved"]>().mockReturnValue(100),
-        };
         notifications = new NotificationManager();
-        events = [];
-        for (const type of [EventType.Correct, EventType.Incorrect]) {
-            notifications.subscribe(type, (e) => events.push(e.eventType));
+        sent = [];
+        for (const type of [EventType.Correct, EventType.Incorrect, EventType.RoomSolved]) {
+            notifications.subscribe(type, (e) => sent.push(e));
         }
-        validator = new AnswerValidator(history, score, notifications);
+        validator = new AnswerValidator(history, notifications);
     });
 
-    it("accepts a correct last Step and solves a main Room", () => {
+    it("accepts a correct last Step: RoomSolved for a main Room, then Correct", () => {
         const result = validator.validateAnswer(question, step("4", "4", true), "main");
 
         expect(result).toBe(true);
-        expect(score.roomSolved).toHaveBeenCalledExactlyOnceWith("main");
-        expect(score.answerIncorrect).not.toHaveBeenCalled();
-        expect(events).toEqual([EventType.Correct]);
+        expect(sent).toEqual([
+            { eventType: EventType.RoomSolved, roomKind: "main" },
+            { eventType: EventType.Correct },
+        ]);
     });
 
     it("solves a Bonus Room with its kind", () => {
         validator.validateAnswer(question, step("4", "4", true), "bonus");
 
-        expect(score.roomSolved).toHaveBeenCalledExactlyOnceWith("bonus");
+        expect(sent[0]).toEqual({ eventType: EventType.RoomSolved, roomKind: "bonus" });
     });
 
-    it("rejects an incorrect Answer with a time penalty", () => {
+    it("rejects an incorrect Answer with Incorrect only", () => {
         const result = validator.validateAnswer(question, step("6", "4", true), "main");
 
         expect(result).toBe(false);
-        expect(score.roomSolved).not.toHaveBeenCalled();
-        expect(score.answerIncorrect).toHaveBeenCalledOnce();
-        expect(events).toEqual([EventType.Incorrect]);
+        expect(types()).toEqual([EventType.Incorrect]);
     });
 
-    it("does not reward a correct earlier Step", () => {
+    it("does not solve the Room on a correct earlier Step", () => {
         const result = validator.validateAnswer(question, step("-", "-", false), "main");
 
         expect(result).toBe(true);
-        expect(score.roomSolved).not.toHaveBeenCalled();
-        expect(score.answerIncorrect).not.toHaveBeenCalled();
-        expect(events).toEqual([EventType.Correct]);
+        expect(types()).toEqual([EventType.Correct]);
     });
 
-    it("penalises a wrong earlier Step, operation picks included", () => {
+    it("sends Incorrect for a wrong earlier Step, operation picks included", () => {
         const result = validator.validateAnswer(question, step("+", "-", false), "main");
 
         expect(result).toBe(false);
-        expect(score.answerIncorrect).toHaveBeenCalledOnce();
-        expect(events).toEqual([EventType.Incorrect]);
+        expect(types()).toEqual([EventType.Incorrect]);
     });
 
     it("ignores extra whitespace", () => {
         const result = validator.validateAnswer(question, step(" 4 ", "4", true), "main");
 
         expect(result).toBe(true);
-        expect(score.roomSolved).toHaveBeenCalledOnce();
+        expect(types()).toEqual([EventType.RoomSolved, EventType.Correct]);
     });
 
     it("records every Answer as an AnswerRecord", () => {
@@ -95,6 +86,11 @@ describe("AnswerValidator", () => {
             { question, playerAnswer: "-", correctAnswer: "-", isCorrect: true, isLastStep: false },
             { question, playerAnswer: "4", correctAnswer: "4", isCorrect: true, isLastStep: true },
         ]);
-        expect(events).toEqual([EventType.Incorrect, EventType.Correct, EventType.Correct]);
+        expect(types()).toEqual([
+            EventType.Incorrect,
+            EventType.Correct,
+            EventType.RoomSolved,
+            EventType.Correct,
+        ]);
     });
 });
