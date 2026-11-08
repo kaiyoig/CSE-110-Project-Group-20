@@ -1,5 +1,5 @@
 import { Question } from "./Question";
-import type { Difficulty } from "../score";
+import { type Difficulty } from "../score";
 
 const RANGE: number = 20; // answers can range from -RANGE to +RANGE
 
@@ -56,7 +56,12 @@ function getFactors(n: number) : number[] {
 
 /**
  * randomly generates and returns a Question
- * @todo change question generation based on difficulty; higher difficulty = more steps
+ *
+ * Easy: 1 step to solve, e.g. x * 3 = 21, x + 4 = 5
+ *
+ * Medium: 2 steps to solve, e.g. x * 3 + 4 = 25
+ *
+ * Hard: 3+ steps to solve, e.g. x * 5 + 4 = 25 + x * 2
  *
  * @param difficulty: Difficulty.Easy / Medium / Hard (from score)
  * 
