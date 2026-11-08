@@ -2,12 +2,16 @@ import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Room } from './Room';
 import { MapController, type SwitchMapScreen, type AccessDeniedPayload } from './MapController';
 import { ScoreController, ScoreModel } from '../score';
+import { NotificationManager } from '../notification-manager/NotificationManager';
+import { EventType } from '../notification-manager/GameEvent';
 
 const question = { prompt: 'x * 2 + 1 = 5', answer: '2' };
 
 describe('MapController Tests', () => {
   let controller: MapController;
   let score: ScoreController;
+  let notifications: NotificationManager;
+  let sent: EventType[];
   let screenChangeMock: ReturnType<typeof vi.fn<(event: SwitchMapScreen) => void>>;
   let accessDeniedMock: ReturnType<typeof vi.fn<(payload: AccessDeniedPayload) => void>>;
 
@@ -21,8 +25,16 @@ describe('MapController Tests', () => {
   });
 
   beforeEach(() => {
+    notifications = new NotificationManager();
+    sent = [];
+    for (const type of [EventType.RoomEntered, EventType.ReturnedToMap]) {
+      notifications.subscribe(type, (e) => sent.push(e.eventType));
+    }
+    // A real ScoreController listening to the same events, so the clock tests
+    // check the whole path: map → event → score.
     score = new ScoreController(new ScoreModel());
-    controller = new MapController(score);
+    score.listenTo(notifications);
+    controller = new MapController(notifications);
 
     // Mocks for execution site callbacks
     screenChangeMock = vi.fn();
@@ -204,6 +216,13 @@ describe('MapController Tests', () => {
     expect(controller.solvedRooms.size).toBe(0);
   });
 
+  test('entering a Room sends RoomEntered and returning sends ReturnedToMap', () => {
+    controller.clickRoomButton('room_a');
+    controller.returnToMap();
+
+    expect(sent).toEqual([EventType.RoomEntered, EventType.ReturnedToMap]);
+  });
+
   test('entering a Room starts the clock and returning to the map pauses it', () => {
     controller.clickRoomButton('room_a');
     expect(score.isInRoom()).toBe(true);
@@ -217,6 +236,7 @@ describe('MapController Tests', () => {
   test('a denied click does not start the clock', () => {
     controller.clickRoomButton('room_c');
 
+    expect(sent).toEqual([]);
     expect(score.isRunning()).toBe(false);
   });
 

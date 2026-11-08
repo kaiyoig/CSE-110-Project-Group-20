@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ScoreModel, Difficulty, DIFFICULTY_LABEL } from "./ScoreModel";
+import { ScoreModel, Difficulty, DIFFICULTY_LABEL, DEFAULT_TIME_LIMIT_MINUTES, isDifficultyType } from "./ScoreModel";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -23,6 +23,18 @@ describe("ScoreModel", () => {
     expect(Difficulty.Easy).toBe(0);
     expect(Difficulty.Medium).toBe(1);
     expect(Difficulty.Hard).toBe(2);
+  });
+
+  it("defaults to a 60-minute heist", () => {
+    expect(DEFAULT_TIME_LIMIT_MINUTES).toBe(60);
+    expect(new ScoreModel().getTimeLimitMs()).toBe(HOUR);
+  });
+
+  it("isDifficultyType accepts only 0, 1 and 2", () => {
+    expect([0, 1, 2].every(isDifficultyType)).toBe(true);
+    for (const bad of [3, -1, 1.5, "easy", "1", null, undefined, {}]) {
+      expect(isDifficultyType(bad)).toBe(false);
+    }
   });
 
   it("labels each difficulty for display", () => {

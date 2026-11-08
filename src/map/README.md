@@ -21,10 +21,10 @@ const room = new Room({
 room.isAccessible(solvedRoomIds);           // true when every prerequisite is Solved
 room.getMissingPrerequisites(solvedRoomIds); // the prerequisite ids still to Solve
 
-const map = new MapController(score);  // the Heist's ScoreController
+const map = new MapController(notifications);  // the NotificationManager
 map.registerRoom(room);
-map.clickRoomButton(id);  // enters the Room (and calls score.enterRoom()) if allowed; returns whether it did
-map.returnToMap();        // leaves the Room and calls score.returnToMap()
+map.clickRoomButton(id);  // enters the Room (and sends RoomEntered) if allowed; returns whether it did
+map.returnToMap();        // leaves the Room and sends ReturnedToMap
 map.solveRoom(id);        // marks a Room Solved
 map.solveVault();         // marks the Vault Solved (ending the Heist is up to Game)
 map.solvedRooms;          // ReadonlySet<string> of Solved ids

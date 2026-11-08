@@ -1,4 +1,4 @@
-import { isDifficulty, type Difficulty } from "./ScoreModel";
+import { isDifficultyType, type Difficulty } from "./ScoreModel";
 
 /**
  * Leaderboard backed by localStorage (no login yet).
@@ -17,6 +17,12 @@ export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export const LEADERBOARD_KEY = "heist-leaderboard";
 
+/** What happened when an entry was added. See Leaderboard.addEntry. */
+export type AddEntryResult =
+  | { status: "ranked"; rank: number }
+  | { status: "notRanked" }
+  | { status: "saveFailed" };
+
 export class Leaderboard {
   private readonly storage: StorageLike;
   private readonly maxEntries: number;
@@ -31,24 +37,44 @@ export class Leaderboard {
     return this.readAll().filter((e) => e.difficulty === difficulty);
   }
 
+  /**
+   * Reads every saved entry. Nothing saved yet (the first game) is normal and
+   * gives an empty list. Anything else that goes wrong is logged so we can see
+   * it in the console, but the game still shows an empty board instead of
+   * crashing the End Screen.
+   */
   private readAll(): LeaderboardEntry[] {
+    let raw: string | null;
     try {
-      // getItem itself can throw (e.g. storage disabled), so it's inside the try too
-      const raw = this.storage.getItem(LEADERBOARD_KEY);
-      if (!raw) return [];
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(isEntry).sort(compareEntries);
-    } catch {
-      return []; // unreadable or corrupted data — show an empty board rather than crash
+      raw = this.storage.getItem(LEADERBOARD_KEY);
+    } catch (err) {
+      console.error("Could not read the leaderboard from storage:", err);
+      return [];
     }
+    if (raw === null) return [];
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      console.error("Saved leaderboard is not valid JSON, ignoring it:", err);
+      return [];
+    }
+    if (!Array.isArray(parsed)) {
+      console.error("Saved leaderboard is not a list, ignoring it:", parsed);
+      return [];
+    }
+    return parsed.filter(isEntry).sort(compareEntries);
   }
 
   /**
-   * Adds an entry and returns its rank within its difficulty (1-based).
-   * Returns null if it didn't make the board, or if saving failed (e.g. storage full).
+   * Adds an entry to its difficulty's board. The result says which of three
+   * things happened, so callers never have to guess what a missing rank means:
+   *  - "ranked": saved, with its 1-based rank
+   *  - "notRanked": not in the top entries, so nothing was written
+   *  - "saveFailed": it made the board, but storage refused it (e.g. full)
    */
-  addEntry(entry: Omit<LeaderboardEntry, "date"> & { date?: string }): number | null {
+  addEntry(entry: Omit<LeaderboardEntry, "date"> & { date?: string }): AddEntryResult {
     const name = entry.playerName.trim() || "Anonymous";
     const full: LeaderboardEntry = {
       playerName: name,
@@ -63,15 +89,17 @@ export class Leaderboard {
     const sameDifficulty = [...all.filter((e) => e.difficulty === full.difficulty), full]
       .sort(compareEntries)
       .slice(0, this.maxEntries);
+    const index = sameDifficulty.indexOf(full);
+    if (index === -1) return { status: "notRanked" };
+
     const others = all.filter((e) => e.difficulty !== full.difficulty);
     try {
       this.storage.setItem(LEADERBOARD_KEY, JSON.stringify([...others, ...sameDifficulty]));
     } catch (err) {
       console.error("Could not save the leaderboard:", err);
-      return null;
+      return { status: "saveFailed" };
     }
-    const index = sameDifficulty.indexOf(full);
-    return index === -1 ? null : index + 1;
+    return { status: "ranked", rank: index + 1 };
   }
 
   clear(): void {
@@ -93,7 +121,7 @@ function isEntry(value: unknown): value is LeaderboardEntry {
     typeof e === "object" &&
     e !== null &&
     typeof e.playerName === "string" &&
-    isDifficulty(e.difficulty) &&
+    isDifficultyType(e.difficulty) &&
     Number.isFinite(e.score) &&
     Number.isFinite(e.timeSpentMs) &&
     e.timeSpentMs >= 0 &&

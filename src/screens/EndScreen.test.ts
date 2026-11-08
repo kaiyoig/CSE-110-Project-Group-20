@@ -162,6 +162,54 @@ describe("EndScreen", () => {
     expect(onSaveScore).toHaveBeenCalledOnce();
   });
 
+  describe("showSaveResult", () => {
+    function message(): { shown: boolean; text: string } {
+      const node = find("save-message") as Konva.Text;
+      return { shown: node.visible(), text: node.text() };
+    }
+
+    it("shows the rank when the score made the board", () => {
+      screen.setResult(escaped(), []);
+      screen.showSaveResult({ status: "ranked", rank: 2 });
+
+      expect(message()).toEqual({ shown: true, text: "Saved! You're #2 on the Medium leaderboard." });
+    });
+
+    it("says so when the score didn't make the board", () => {
+      screen.setResult(escaped(), []);
+      screen.showSaveResult({ status: "notRanked" });
+
+      expect(message()).toEqual({ shown: true, text: "Not on the Medium leaderboard this time. Try again!" });
+    });
+
+    it("says so when saving failed", () => {
+      screen.setResult(escaped(), []);
+      screen.showSaveResult({ status: "saveFailed" });
+
+      expect(message().shown).toBe(true);
+      expect(message().text).toContain("Couldn't save your score");
+    });
+
+    it("keeps the message when the same result is shown again (the leaderboard refresh)", () => {
+      const result = escaped();
+      screen.setResult(result, []);
+      screen.showSaveResult({ status: "ranked", rank: 1 });
+
+      screen.setResult(result, [entry("Ana", result.snapshot.score)]);
+
+      expect(message().shown).toBe(true);
+    });
+
+    it("clears the message for a new result", () => {
+      screen.setResult(escaped(), []);
+      screen.showSaveResult({ status: "ranked", rank: 1 });
+
+      screen.setResult(escaped(), []);
+
+      expect(message().shown).toBe(false);
+    });
+  });
+
   it("the Save button saves the typed name", () => {
     const onSaveScore = vi.fn();
     screen.onSaveScore(onSaveScore);

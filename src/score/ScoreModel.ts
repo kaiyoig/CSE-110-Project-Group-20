@@ -1,3 +1,6 @@
+import { minutesToMs, msToWholeSeconds } from "./time";
+import type { RoomKind } from "../map/Room";
+
 /**
  * ScoreModel — holds the player's score state for one heist.
  * Pure data + simple rules; no timers or DOM here (see ScoreController).
@@ -15,7 +18,11 @@
  *  - Money does NOT affect score (it's for buying skins later).
  */
 
-/** Same numbers as getQuestion(difficulty): 0 = easy, 1 = medium, 2 = hard. */
+/**
+ * Same numbers as getQuestion(difficulty): 0 = easy, 1 = medium, 2 = hard.
+ * The values are written out on purpose: they are shared with getQuestion and
+ * saved in the leaderboard, so reordering the members must not change them.
+ */
 export enum Difficulty {
   Easy = 0,
   Medium = 1,
@@ -29,9 +36,8 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   [Difficulty.Hard]: "Hard",
 };
 
-export type RoomKind = "main" | "bonus";
-
-export const DEFAULT_TIME_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+export const DEFAULT_TIME_LIMIT_MINUTES = 60;
+export const DEFAULT_TIME_LIMIT_MS = minutesToMs(DEFAULT_TIME_LIMIT_MINUTES);
 
 export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
   [Difficulty.Easy]: 1,
@@ -86,7 +92,7 @@ export class ScoreModel {
 
   constructor(options: ScoreOptions = {}) {
     const { difficulty = Difficulty.Easy, timeLimitMs = DEFAULT_TIME_LIMIT_MS } = options;
-    if (!isDifficulty(difficulty)) {
+    if (!isDifficultyType(difficulty)) {
       throw new RangeError(`unknown difficulty: ${difficulty}`);
     }
     if (!Number.isFinite(timeLimitMs) || timeLimitMs <= 0) {
@@ -187,7 +193,7 @@ export class ScoreModel {
 
   calculateScore(): number {
     if (this.isCaught()) return 0;
-    const secondsLeft = Math.floor(this.timeRemainingMs / 1000);
+    const secondsLeft = msToWholeSeconds(this.timeRemainingMs);
     const base = this.getMultiplier() * this.getWeightedCorrect() * secondsLeft;
     return Math.round(this.isFlawless() ? base * FLAWLESS_BONUS : base);
   }
@@ -210,7 +216,11 @@ export class ScoreModel {
   }
 }
 
-/** True for 0, 1 or 2 (Difficulty.Easy / Medium / Hard). */
-export function isDifficulty(value: unknown): value is Difficulty {
+/**
+ * Checks at runtime that a value is a real Difficulty (0, 1 or 2).
+ * TypeScript types are erased when data is saved to localStorage or passed in
+ * from untyped code, so values read back from there must be checked before use.
+ */
+export function isDifficultyType(value: unknown): value is Difficulty {
   return typeof value === "number" && value in DIFFICULTY_MULTIPLIER;
 }

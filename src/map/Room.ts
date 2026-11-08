@@ -1,5 +1,7 @@
 import type { Question } from "../questions/Question";
-import type { RoomKind } from "../score";
+
+/** A main Room is part of the path to the Vault; a bonus Room is optional extra. */
+export type RoomKind = "main" | "bonus";
 
 export interface RoomConfig {
   id: string;   // unique room id
