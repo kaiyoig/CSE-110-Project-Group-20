@@ -10,7 +10,7 @@ export {
   DIFFICULTY_LABEL,
   isDifficultyType,
 } from "./ScoreModel";
-export type { RoomKind, ScoreOptions, ScoreSnapshot } from "./ScoreModel";
+export type { ScoreOptions, ScoreSnapshot } from "./ScoreModel";
 export { ScoreController, WRONG_ANSWER_PENALTY_SECONDS } from "./ScoreController";
 export type { ScoreListener } from "./ScoreController";
 export { Leaderboard, LEADERBOARD_KEY } from "./Leaderboard";

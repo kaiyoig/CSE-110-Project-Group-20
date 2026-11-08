@@ -1,4 +1,5 @@
-import { ScoreModel, type RoomKind } from "./ScoreModel";
+import { ScoreModel } from "./ScoreModel";
+import type { RoomKind } from "../map/Room";
 import { secondsToMs } from "./time";
 import type { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";

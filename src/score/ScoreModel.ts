@@ -1,4 +1,5 @@
 import { minutesToMs, msToWholeSeconds } from "./time";
+import type { RoomKind } from "../map/Room";
 
 /**
  * ScoreModel — holds the player's score state for one heist.
@@ -34,8 +35,6 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   [Difficulty.Medium]: "Medium",
   [Difficulty.Hard]: "Hard",
 };
-
-export type RoomKind = "main" | "bonus";
 
 export const DEFAULT_TIME_LIMIT_MINUTES = 60;
 export const DEFAULT_TIME_LIMIT_MS = minutesToMs(DEFAULT_TIME_LIMIT_MINUTES);

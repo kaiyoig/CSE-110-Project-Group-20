@@ -2,7 +2,7 @@ import { AnswerHistory } from "./AnswerHistory";
 import type { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
 import type { Question, StepAnswer } from "../questions/Question";
-import type { RoomKind } from "../score";
+import type { RoomKind } from "../map/Room";
 
 /**
  * Judges each Step's Answer, sends the events for it and records the Answer

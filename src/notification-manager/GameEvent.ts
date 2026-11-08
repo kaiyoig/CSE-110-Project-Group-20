@@ -1,4 +1,4 @@
-import type { RoomKind } from "../score/ScoreModel";
+import type { RoomKind } from "../map/Room";
 
 // new event types should be added here
 export enum EventType {
