@@ -1,6 +1,6 @@
 import type { Screen } from "./ScreenController";
 import type { Question, StepAnswer } from "../questions/Question";
-import type { Room } from "../map/Room";
+import type { MapGrid } from "../map/MapGrid";
 import type { AccessDeniedPayload } from "../map/MapController";
 import type { AddEntryResult, Difficulty, LeaderboardEntry } from "../score";
 import type { HeistResult } from "../game/Game";
@@ -20,8 +20,8 @@ export interface StartScreen extends Screen {
 }
 
 export interface MapScreen extends Screen {
-  /** Locked / Solved drawing comes from the Rooms and the Solved ids. */
-  setRooms(rooms: readonly Room[], solvedRoomIds: ReadonlySet<string>): void;
+  /** Renders floor plan dynamically from the 2D MapGrid and solved room IDs */
+  setGrid(grid: MapGrid, solvedRoomIds: ReadonlySet<string>): void;
   /** Format with formatTime / formatMoney from score. */
   setHud(timeRemainingMs: number, timeLimitMs: number, money: number): void;
   showAccessDenied(payload: AccessDeniedPayload): void;

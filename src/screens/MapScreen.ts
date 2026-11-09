@@ -1,5 +1,6 @@
 import Konva from "konva";
 import type { Room } from "../map/Room";
+import type { MapGrid } from "../map/MapGrid";
 import type { AccessDeniedPayload } from "../map/MapController";
 import type { MapScreen as MapScreenContract, Unsubscribe } from "./contracts";
 import { Hud } from "./Hud";
@@ -15,7 +16,7 @@ interface RoomGeometry {
   lock: [x: number, y: number];
 }
 
-/** The bank's floor plan from #30, keyed by Room id. */
+/** Fallback floor plan from #30, keyed by Room id. */
 const FLOOR_PLAN: Record<string, RoomGeometry> = {
   room_a: { bounds: [116, 81, 368, 275], button: [204, 198], lock: [137, 101] },
   room_b: { bounds: [484, 81, 366, 275], button: [573, 198], lock: [505, 101] },
@@ -28,22 +29,28 @@ const BUTTON = { width: 191, height: 43 };
 const TOOLTIP_WIDTH = 260;
 const SOLVED_FLOOR = "#a8d8a0";
 
-/**
- * The Map Screen: the floor plan, each Room's locked / Solved state, and the
- * HUD. Reworked from #30's createMapScreen (Calista, chartono) as a passive
- * screen on its own layer of the shared stage.
- */
+// Boundaries of the interior corridor area on canvas
+const GRID_AREA = {
+  x: 116,
+  y: 81,
+  width: 1207,
+  height: 737,
+  gap: 16,
+};
+
 export class MapScreen implements MapScreenContract {
   readonly layer = new Konva.Layer();
 
   private readonly roomClicks = new Listeners<[string]>();
   private readonly floors = new Konva.Group({ listening: false });
   private readonly controls = new Konva.Group();
-  private readonly player: Konva.Circle;
   private readonly hud = new Hud();
   private readonly tooltip: Konva.Group;
   private readonly tooltipBackground: Konva.Rect;
   private readonly tooltipText: Konva.Text;
+
+  /** Dynamic cache of active room positions for anchoring access-denied tooltips */
+  private activeGeometry: Map<string, RoomGeometry> = new Map();
 
   constructor(stageWidth: number, stageHeight: number) {
     fitLayer(this.layer, stageWidth, stageHeight);
@@ -53,23 +60,14 @@ export class MapScreen implements MapScreenContract {
       fill: COLORS.background,
       listening: false,
     }));
-    // Corridor / overall floor plan.
+    // Corridor / overall floor plan boundary.
     this.layer.add(new Konva.Rect({
-      x: 116, y: 81, width: 1207, height: 737,
+      x: GRID_AREA.x, y: GRID_AREA.y, width: GRID_AREA.width, height: GRID_AREA.height,
       fill: "rgba(217,217,217,0.5)",
       stroke: "black", strokeWidth: 3,
       listening: false,
     }));
     this.layer.add(this.floors);
-
-    this.player = new Konva.Circle({
-      x: 939.5, y: 773.5, radius: 18.5,
-      fill: "#ff0404",
-      stroke: "black", strokeWidth: 3,
-      listening: false,
-      name: "player",
-    });
-    this.layer.add(this.player);
     this.layer.add(this.controls);
     this.layer.add(this.hud);
 
@@ -91,10 +89,65 @@ export class MapScreen implements MapScreenContract {
     this.layer.add(this.tooltip);
   }
 
+  /**
+   * Renders the 2D MapGrid dynamically according to rows and columns.
+   */
+  setGrid(grid: MapGrid, solvedRoomIds: ReadonlySet<string>): void {
+    this.floors.destroyChildren();
+    this.controls.destroyChildren();
+    this.tooltip.visible(false);
+    this.activeGeometry.clear();
+
+    const cols = grid.columns;
+    const rows = grid.rows;
+
+    const totalGapW = (cols - 1) * GRID_AREA.gap;
+    const totalGapH = (rows - 1) * GRID_AREA.gap;
+
+    const tileWidth = Math.floor((GRID_AREA.width - totalGapW) / cols);
+    const tileHeight = Math.floor((GRID_AREA.height - totalGapH) / rows);
+
+    const placedRooms = grid.getAllRooms();
+
+    for (const { room, row, column } of placedRooms) {
+      const rx = GRID_AREA.x + column * (tileWidth + GRID_AREA.gap);
+      const ry = GRID_AREA.y + row * (tileHeight + GRID_AREA.gap);
+
+      // Centered button inside tile bounds
+      const bx = rx + Math.max(0, (tileWidth - BUTTON.width) / 2);
+      const by = ry + Math.max(0, (tileHeight - BUTTON.height) / 2);
+
+      // Lock icon at top-left of the room tile
+      const lx = rx + 20;
+      const ly = ry + 20;
+
+      const geometry: RoomGeometry = {
+        bounds: [rx, ry, tileWidth, tileHeight],
+        button: [bx, by],
+        lock: [lx, ly],
+      };
+
+      this.activeGeometry.set(room.id, geometry);
+
+      const state: RoomState = solvedRoomIds.has(room.id)
+        ? "solved"
+        : room.isAccessible(solvedRoomIds) ? "open" : "locked";
+
+      this.drawRoom(room, geometry, state);
+    }
+
+    this.layer.batchDraw();
+  }
+
+  /**
+   * Original contract method: renders rooms using the fallback FLOOR_PLAN
+   * (maintains full backward compatibility with existing tests).
+   */
   setRooms(rooms: readonly Room[], solvedRoomIds: ReadonlySet<string>): void {
     this.floors.destroyChildren();
     this.controls.destroyChildren();
     this.tooltip.visible(false);
+    this.activeGeometry.clear();
 
     for (const room of rooms) {
       const geometry = FLOOR_PLAN[room.id];
@@ -102,6 +155,8 @@ export class MapScreen implements MapScreenContract {
         console.warn(`MapScreen has no floor plan for Room "${room.id}"`);
         continue;
       }
+      this.activeGeometry.set(room.id, geometry);
+
       const state: RoomState = solvedRoomIds.has(room.id)
         ? "solved"
         : room.isAccessible(solvedRoomIds) ? "open" : "locked";
@@ -115,10 +170,9 @@ export class MapScreen implements MapScreenContract {
   }
 
   showAccessDenied(payload: AccessDeniedPayload): void {
-    const geometry = FLOOR_PLAN[payload.roomId];
+    const geometry = this.activeGeometry.get(payload.roomId) ?? FLOOR_PLAN[payload.roomId];
     if (!geometry) return;
 
-    // #30's wording, kept at the map author's request.
     const required = payload.missingPrerequisiteNames.join(", ");
     this.tooltipText.text(
       required
@@ -140,12 +194,6 @@ export class MapScreen implements MapScreenContract {
 
   onRoomClick(cb: (roomId: string) => void): Unsubscribe {
     return this.roomClicks.add(cb);
-  }
-
-  /** Moves the player dot. Not part of the contract; Game doesn't call it. */
-  setPlayerPosition(x: number, y: number): void {
-    this.player.position({ x, y });
-    this.layer.batchDraw();
   }
 
   show(): void {
@@ -173,7 +221,7 @@ export class MapScreen implements MapScreenContract {
       x: geometry.button[0], y: geometry.button[1],
       name: `room-button-${room.id}`,
       roomState: state,
-      listening: state !== "solved", // a Solved Room can't be entered again
+      listening: state !== "solved",
     });
     button.add(new Konva.Rect({
       y: 4, ...BUTTON,
@@ -223,7 +271,6 @@ export class MapScreen implements MapScreenContract {
     button.on("mouseleave", () => setCursor(button, ""));
     button.on("click tap", () => {
       this.tooltip.visible(false);
-      // MapController decides whether entry is allowed.
       this.roomClicks.emit(room.id);
       this.layer.batchDraw();
     });

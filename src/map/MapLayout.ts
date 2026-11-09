@@ -73,7 +73,7 @@ export class MapLayout {
 
     // Medium level map layout
     // [Room A] [Room B] [Vault]
-    // [(null)] [Room C] [(null)]
+    // [Room C] [(null)] [(null)]
     // [Room X] [Room D] [(null)]
     private static createMediumLayout(): GeneratedMapLayout {
         const grid = new MapGrid(3, 3);
@@ -120,7 +120,7 @@ export class MapLayout {
         grid.placeRoom(roomA, 0, 0);
         grid.placeRoom(roomB, 0, 1);
         grid.placeRoom(vault, 0, 2);
-        grid.placeRoom(roomC, 1, 1);
+        grid.placeRoom(roomC, 1, 0);
         grid.placeRoom(roomX, 2, 0);
         grid.placeRoom(roomD, 2, 1);
 
@@ -128,8 +128,8 @@ export class MapLayout {
     }
 
     // Hard level map layout
-    // [Room A] [Room B] [(null)] [Vault]
-    // [Room C] [(null)] [Room E] [(null)]
+    // [Room A] [Room B] [Room E] [Vault]
+    // [Room C] [(null)] [(null)] [(null)]
     // [Room X] [(null)] [Room D] [Room Y]
     private static createHardLayout(): GeneratedMapLayout {
         const grid = new MapGrid(3, 4);
@@ -189,9 +189,9 @@ export class MapLayout {
 
         grid.placeRoom(roomA, 0, 0);
         grid.placeRoom(roomB, 0, 1);
+        grid.placeRoom(roomE, 0, 2);
         grid.placeRoom(vault, 0, 3);
         grid.placeRoom(roomC, 1, 0);
-        grid.placeRoom(roomE, 1, 2);
         grid.placeRoom(roomX, 2, 0);
         grid.placeRoom(roomD, 2, 2);
         grid.placeRoom(roomY, 2, 3);

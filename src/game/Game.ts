@@ -1,6 +1,5 @@
 import { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
-import { getQuestion } from "../questions/QuestionGenerator";
 import type { StepAnswer } from "../questions/Question";
 import { ScoreController, ScoreModel } from "../score";
 import type { Difficulty, ScoreSnapshot } from "../score";
@@ -12,6 +11,7 @@ import type { AnswerRecord } from "../validation/AnswerHistory";
 import { AnswerValidator } from "../validation/AnswerValidator";
 import type { ScreenController } from "../screens/ScreenController";
 import type { MapScreen, RoomScreen, Unsubscribe } from "../screens/contracts";
+import { MapLayout } from "../map/MapLayout";
 
 export type HeistOutcome = "escaped" | "caught";
 
@@ -84,10 +84,10 @@ export class Game {
     this.score = new ScoreController(new ScoreModel({ difficulty }));
     // The score changes only through events; score.dispose() unsubscribes.
     this.score.listenTo(this.notifications);
-    this.map = new MapController(this.notifications);
-    this.rooms = ROOM_LAYOUT.map(
-      (r) => new Room({ ...r, question: getQuestion(difficulty) }),
-    );
+    // Generates map layout based on difficulty
+    const layout = MapLayout.createLayout(difficulty);
+    this.rooms = layout.rooms;
+    this.map = new MapController(this.notifications, layout.grid);
     this.rooms.forEach((room) => this.map.registerRoom(room));
     this.validator = new AnswerValidator(this.history, this.notifications);
 
@@ -95,7 +95,7 @@ export class Game {
   }
 
   start(): void {
-    this.mapScreen.setRooms(this.rooms, this.map.solvedRooms);
+    this.mapScreen.setGrid(this.map.grid, this.map.solvedRooms);
     this.updateHud();
     this.screens.show("map");
     this.notifications.send({ eventType: EventType.GameStart });
@@ -162,7 +162,8 @@ export class Game {
       this.updateHud();
       this.screens.show("room");
     } else if (event.screen === "map") {
-      this.mapScreen.setRooms(this.rooms, this.map.solvedRooms);
+      // Update grid to show completed rooms
+      this.mapScreen.setGrid(this.map.grid, this.map.solvedRooms);
       this.screens.show("map");
     }
   }
