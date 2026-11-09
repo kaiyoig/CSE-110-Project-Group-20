@@ -25,9 +25,10 @@ export class MapLayout {
 
     // Easy level map layout
     // [Room A] [Room B] [Vault]
+    // [(null)] [(null)] [(null)]
     // [Room C] [(null)] [Room X]
     private static createEasyLayout(): GeneratedMapLayout {
-        const grid = new MapGrid(2, 3);
+        const grid = new MapGrid(3, 3);
 
         const roomA = new Room({
             id: "room_a",
@@ -62,11 +63,12 @@ export class MapLayout {
             kind: "bonus",
         });
 
-        grid.placeRoom(roomA, 0, 0);
-        grid.placeRoom(roomB, 0, 1);
-        grid.placeRoom(vault, 0, 2);
-        grid.placeRoom(roomC, 1, 0);
-        grid.placeRoom(roomX, 1, 2);
+        // Place + assign room widths & heights 
+        grid.placeRoom(roomA, 0, 0, 1, 1);
+        grid.placeRoom(roomB, 0, 1, 1, 1);
+        grid.placeRoom(vault, 0, 2, 1, 2);
+        grid.placeRoom(roomC, 2, 0, 1.5, 1);
+        grid.placeRoom(roomX, 2, 2, 1, 1);
 
         return {grid, rooms: [roomA, roomB, roomC, roomX, vault]};
     }
@@ -117,12 +119,12 @@ export class MapLayout {
             kind: "bonus",
         });
 
-        grid.placeRoom(roomA, 0, 0);
-        grid.placeRoom(roomB, 0, 1);
-        grid.placeRoom(vault, 0, 2);
-        grid.placeRoom(roomC, 1, 0);
-        grid.placeRoom(roomX, 2, 0);
-        grid.placeRoom(roomD, 2, 1);
+        grid.placeRoom(roomA, 0, 0, 1, 1.3);
+        grid.placeRoom(roomB, 0, 1, 0.9, 1.3);
+        grid.placeRoom(vault, 0, 2, 1, 2);
+        grid.placeRoom(roomC, 2, 0);
+        grid.placeRoom(roomD, 2, 1, 0.9, 1);
+        grid.placeRoom(roomX, 2, 2);
 
         return {grid, rooms: [roomA, roomB, roomC, roomD, roomX, vault]};
     }
@@ -187,14 +189,14 @@ export class MapLayout {
             kind: "bonus",
         });
 
-        grid.placeRoom(roomA, 0, 0);
+        grid.placeRoom(roomA, 0, 0, 0.9, 1);
         grid.placeRoom(roomB, 0, 1);
-        grid.placeRoom(roomE, 0, 2);
-        grid.placeRoom(vault, 0, 3);
-        grid.placeRoom(roomC, 1, 0);
-        grid.placeRoom(roomX, 2, 0);
-        grid.placeRoom(roomD, 2, 2);
-        grid.placeRoom(roomY, 2, 3);
+        grid.placeRoom(roomD, 0, 2);
+        grid.placeRoom(vault, 0, 3, 1, 2);
+        grid.placeRoom(roomC, 1, 0, 0.9, 1);
+        grid.placeRoom(roomY, 2, 0, 0.9, 1);
+        grid.placeRoom(roomE, 2, 1, 1.5, 1);
+        grid.placeRoom(roomX, 2, 3);
 
         return {grid, rooms: [roomA, roomB, roomC, roomD, roomE, roomX, roomY, vault]};
     }

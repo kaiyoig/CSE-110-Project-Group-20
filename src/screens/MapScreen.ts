@@ -109,20 +109,23 @@ export class MapScreen implements MapScreenContract {
 
     const placedRooms = grid.getAllRooms();
 
-    for (const { room, row, column } of placedRooms) {
+    for (const { room, row, column, colSpan, rowSpan } of placedRooms) {
       const rx = GRID_AREA.x + column * (tileWidth + GRID_AREA.gap);
       const ry = GRID_AREA.y + row * (tileHeight + GRID_AREA.gap);
 
+      const roomWidth = colSpan * tileWidth + (colSpan - 1) * GRID_AREA.gap;
+      const roomHeight = rowSpan * tileHeight + (rowSpan - 1) * GRID_AREA.gap;
+
       // Centered button inside tile bounds
-      const bx = rx + Math.max(0, (tileWidth - BUTTON.width) / 2);
-      const by = ry + Math.max(0, (tileHeight - BUTTON.height) / 2);
+      const bx = rx + Math.max(0, (roomWidth - BUTTON.width) / 2);
+      const by = ry + Math.max(0, (roomHeight - BUTTON.height) / 2);
 
       // Lock icon at top-left of the room tile
       const lx = rx + 20;
       const ly = ry + 20;
 
       const geometry: RoomGeometry = {
-        bounds: [rx, ry, tileWidth, tileHeight],
+        bounds: [rx, ry, roomWidth, roomHeight],
         button: [bx, by],
         lock: [lx, ly],
       };

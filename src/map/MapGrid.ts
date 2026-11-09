@@ -4,12 +4,15 @@ export interface PlacedRoom {
     room: Room;
     row: number;
     column: number;
+    colSpan: number;
+    rowSpan: number;
 }
 
 export class MapGrid {
     public readonly rows: number;
     public readonly columns: number;
     private tiles: (Room | null)[][];   //tiles[row][col] holds a Room instance or null if empty
+    private placedRooms: PlacedRoom[] = [];
 
     constructor (rows: number, columns: number) {
         if (rows <= 0 || columns <= 0) {
@@ -24,23 +27,32 @@ export class MapGrid {
     }
 
     // Places room at (row, column) on the grid, given that placement is valid
-    public placeRoom(room: Room, row: number, column: number) {
-        if (!this.isValidPlacement(row, column)) {
+    public placeRoom(room: Room, row: number, column: number, colSpan: number = 1, rowSpan: number = 1) {
+        if (!this.isValidPlacement(row, column, colSpan, rowSpan)) {
             throw new Error("Invalid room placement");
         }
-        this.tiles[row][column] = room;    
+        for (let i = row; i < row + rowSpan; i++) {
+            for (let j = column; j < column + colSpan; j++) {
+                this.tiles[i][j] = room;
+            }
+        }
+        this.placedRooms.push({ room, row, column, colSpan, rowSpan });
     }
 
     // Checks whether room can be placed at (row, column)
-    public isValidPlacement(row: number, column: number): boolean {
+    public isValidPlacement(row: number, column: number, colSpan: number = 1, rowSpan: number = 1): boolean {
         //check whether coordinates are within grid dimensions
-        if (row < 0 || row >= this.rows || column < 0 || column >= this.columns) {
+        if (row < 0 || row + rowSpan > this.rows || column < 0 || column + colSpan > this.columns) {
             return false;
         }
 
         //check whether tile is occupied
-        if (this.tiles[row][column] !== null) {
-            return false;
+        for (let i = row; i < row + rowSpan; i++) {
+            for (let j = column; j < column + colSpan; j++) {
+                if (this.tiles[i][j] !== null) {
+                return false;
+                }
+            }
         }
 
         //placement is valid
@@ -57,16 +69,7 @@ export class MapGrid {
 
     // Returns all placed rooms and their grid coordinates
     public getAllRooms(): PlacedRoom[]{
-        const placed: PlacedRoom[] = [];
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.columns; j++) {
-                const room = this.tiles[i][j];
-                if (room !== null) {
-                    placed.push({room, row: i, column: j});
-                }
-            }
-        }
-        return placed;
+        return [...this.placedRooms];
     }
 
     // Returns a room's coordinates given the room id
