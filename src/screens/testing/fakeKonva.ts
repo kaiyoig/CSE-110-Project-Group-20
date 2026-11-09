@@ -126,6 +126,17 @@ export class FakeNode {
     return true;
   }
 
+  /** Moves this node to position `index` among its siblings (like Konva's zIndex). */
+  zIndex(index?: number): any {
+    if (!this.parent) return index === undefined ? 0 : this;
+    const siblings = this.parent.children;
+    if (index === undefined) return siblings.indexOf(this);
+    const others = siblings.filter((c) => c !== this);
+    others.splice(Math.max(0, Math.min(index, others.length)), 0, this);
+    this.parent.children = others;
+    return this;
+  }
+
   moveToTop(): this {
     if (this.parent) {
       const parent = this.parent;
