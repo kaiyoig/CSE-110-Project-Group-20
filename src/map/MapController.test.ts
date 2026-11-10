@@ -4,6 +4,7 @@ import { MapController, type SwitchMapScreen, type AccessDeniedPayload } from '.
 import { ScoreController, ScoreModel } from '../score';
 import { NotificationManager } from '../notification-manager/NotificationManager';
 import { EventType } from '../notification-manager/GameEvent';
+import { MapGrid } from './MapGrid';
 
 const question = { prompt: 'x * 2 + 1 = 5', answer: '2' };
 
@@ -19,6 +20,9 @@ describe('MapController Tests', () => {
   let placeholderRoomB: Room;
   let placeholderRoomC: Room;
   let placeholderVault: Room;
+  let placeholderRoomX: Room;
+
+  let grid: MapGrid;
 
   afterEach(() => {
     score.dispose();
@@ -34,7 +38,8 @@ describe('MapController Tests', () => {
     // check the whole path: map → event → score.
     score = new ScoreController(new ScoreModel());
     score.listenTo(notifications);
-    controller = new MapController(notifications);
+    grid = new MapGrid(3, 3);
+    controller = new MapController(notifications, grid);
 
     // Mocks for execution site callbacks
     screenChangeMock = vi.fn();
@@ -58,11 +63,24 @@ describe('MapController Tests', () => {
       question,
       prerequisites: ['room_c'],
     });
+    placeholderRoomX = new Room({
+      id: 'room_x',
+      name: 'Room X',
+      kind: 'bonus',
+      question,
+    });
 
     controller.registerRoom(placeholderRoomA);
     controller.registerRoom(placeholderRoomB);
     controller.registerRoom(placeholderRoomC);
     controller.registerRoom(placeholderVault);
+    controller.registerRoom(placeholderRoomX);
+
+    grid.placeRoom(placeholderRoomA, 0, 0, 1, 1);
+    grid.placeRoom(placeholderRoomB, 0, 1, 1, 1);
+    grid.placeRoom(placeholderVault, 0, 2, 1, 2);
+    grid.placeRoom(placeholderRoomC, 2, 0, 2, 1);
+    grid.placeRoom(placeholderRoomX, 2, 2, 1, 1);
   });
 
   test('starts with default screen state as "map" and no active room', () => {
@@ -177,6 +195,40 @@ describe('MapController Tests', () => {
       room: placeholderRoomC,
       name: 'Room C',
     });
+  });
+
+  test('clicking multi-cell spanned Vault room requires Room C to be solved first', () => {
+    // Vault spans rows 0 and 1 at column 2
+    expect(grid.getRoomAt(0, 2)).toBe(placeholderVault);
+    expect(grid.getRoomAt(1, 2)).toBe(placeholderVault);
+
+    // Attempt before Room C is solved
+    const denied = controller.clickRoomButton('vault');
+    expect(denied).toBe(false);
+    expect(accessDeniedMock).toHaveBeenCalledWith({
+      roomId: 'vault',
+      roomName: 'Vault',
+      missingPrerequisiteIds: ['room_c'],
+      missingPrerequisiteNames: ['Room C'],
+    });
+
+    // Solve Room A, Room B, and Room C
+    controller.solveRoom('room_a');
+    controller.solveRoom('room_b');
+    controller.solveRoom('room_c');
+
+    const allowed = controller.clickRoomButton('vault');
+    expect(allowed).toBe(true);
+    expect(controller.currentScreen).toBe('vault');
+    expect(controller.activeRoom).toBe(placeholderVault);
+  });
+
+  test('allows entering bonus Room X directly without prerequisites', () => {
+    const result = controller.clickRoomButton('room_x');
+
+    expect(result).toBe(true);
+    expect(controller.currentScreen).toBe('room_x');
+    expect(controller.activeRoom).toBe(placeholderRoomX);
   });
 
   test('returnToMap() resets screen state to "map" and clears activeRoom', () => {

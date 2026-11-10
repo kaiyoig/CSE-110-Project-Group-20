@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { MapLayout } from './MapLayout';
 import { Difficulty } from '../score';
 
@@ -9,7 +9,7 @@ describe('MapLayout Tests', () => {
         test('creates a 2x3 grid with exactly 5 rooms', () => {
         const layout = MapLayout.createLayout(Difficulty.Easy);
 
-        expect(layout.grid.rows).toBe(2);
+        expect(layout.grid.rows).toBe(3);
         expect(layout.grid.columns).toBe(3);
         expect(layout.rooms).toHaveLength(5);
         });
@@ -23,10 +23,15 @@ describe('MapLayout Tests', () => {
         expect(grid.getRoomAt(0, 1)?.id).toBe('room_b');
         expect(grid.getRoomAt(0, 2)?.id).toBe('vault');
 
-        // Row 1: [Room C] [null / hallway] [Room X]
-        expect(grid.getRoomAt(1, 0)?.id).toBe('room_c');
+        // Row 1: [null] [null] [Vault(spans down)]
+        expect(grid.getRoomAt(1, 0)).toBeNull();
         expect(grid.getRoomAt(1, 1)).toBeNull();
-        expect(grid.getRoomAt(1, 2)?.id).toBe('room_x');
+        expect(grid.getRoomAt(1, 2)?.id).toBe('vault');
+
+        // Row 2: [Room C] [Room C(spans right)] [Room X]
+        expect(grid.getRoomAt(2, 0)?.id).toBe('room_c');
+        expect(grid.getRoomAt(2, 1)?.id).toBe('room_c');
+        expect(grid.getRoomAt(2, 2)?.id).toBe('room_x');
         });
 
         test('configures Room C and Vault prerequisites correctly', () => {
@@ -59,15 +64,15 @@ describe('MapLayout Tests', () => {
         expect(grid.getRoomAt(0, 1)?.id).toBe('room_b');
         expect(grid.getRoomAt(0, 2)?.id).toBe('vault');
 
-        // Row 1: [null] [Room C] [null]
-        expect(grid.getRoomAt(1, 0)).toBeNull();
-        expect(grid.getRoomAt(1, 1)?.id).toBe('room_c');
-        expect(grid.getRoomAt(1, 2)).toBeNull();
+        // Row 1: [Room A(spans down)] [Room B(spans down)] [Vault(spans down)]
+        expect(grid.getRoomAt(1, 0)?.id).toBe('room_a');
+        expect(grid.getRoomAt(1, 1)?.id).toBe('room_b');
+        expect(grid.getRoomAt(1, 2)?.id).toBe('vault');
 
-        // Row 2: [Room X] [Room D] [null]
-        expect(grid.getRoomAt(2, 0)?.id).toBe('room_x');
+        // Row 2: [Room C] [Room D] [Room X]
+        expect(grid.getRoomAt(2, 0)?.id).toBe('room_c');
         expect(grid.getRoomAt(2, 1)?.id).toBe('room_d');
-        expect(grid.getRoomAt(2, 2)).toBeNull();
+        expect(grid.getRoomAt(2, 2)?.id).toBe('room_x');
         });
 
         test('configures prerequisite requirements for Medium difficulty', () => {
@@ -93,23 +98,23 @@ describe('MapLayout Tests', () => {
         const layout = MapLayout.createLayout(Difficulty.Hard);
         const { grid } = layout;
 
-        // Row 0: [Room A] [Room B] [null] [Vault]
-        expect(grid.getRoomAt(0, 0)?.id).toBe('room_a');
-        expect(grid.getRoomAt(0, 1)?.id).toBe('room_b');
-        expect(grid.getRoomAt(0, 2)).toBeNull();
+        // Row 0: [Room B] [Room C] [Room D] [Vault]
+        expect(grid.getRoomAt(0, 0)?.id).toBe('room_b');
+        expect(grid.getRoomAt(0, 1)?.id).toBe('room_c');
+        expect(grid.getRoomAt(0, 2)?.id).toBe('room_d');
         expect(grid.getRoomAt(0, 3)?.id).toBe('vault');
 
-        // Row 1: [Room C] [null] [Room E] [null]
-        expect(grid.getRoomAt(1, 0)?.id).toBe('room_c');
+        // Row 1: [Room A] [null] [null] [Vault(spans down)]
+        expect(grid.getRoomAt(1, 0)?.id).toBe('room_a');
         expect(grid.getRoomAt(1, 1)).toBeNull();
-        expect(grid.getRoomAt(1, 2)?.id).toBe('room_e');
-        expect(grid.getRoomAt(1, 3)).toBeNull();
+        expect(grid.getRoomAt(1, 2)).toBeNull();
+        expect(grid.getRoomAt(1, 3)?.id).toBe('vault');
 
-        // Row 2: [Room X] [null] [Room D] [Room Y]
-        expect(grid.getRoomAt(2, 0)?.id).toBe('room_x');
-        expect(grid.getRoomAt(2, 1)).toBeNull();
-        expect(grid.getRoomAt(2, 2)?.id).toBe('room_d');
-        expect(grid.getRoomAt(2, 3)?.id).toBe('room_y');
+        // Row 2: [Room Y] [Room E] [Room E(spans right)] [Room X]
+        expect(grid.getRoomAt(2, 0)?.id).toBe('room_y');
+        expect(grid.getRoomAt(2, 1)?.id).toBe('room_e');
+        expect(grid.getRoomAt(2, 2)?.id).toBe('room_e');
+        expect(grid.getRoomAt(2, 3)?.id).toBe('room_x');
         });
 
         test('configures multi-branch prerequisites for Hard difficulty', () => {

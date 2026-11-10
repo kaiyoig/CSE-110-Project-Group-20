@@ -15,6 +15,25 @@ export const COLORS = {
   white: "#ffffff",
 } as const;
 
+export const BONUS_COLORS = {
+  floor: "#dfd6b0ff", 
+  border: "#b45309",
+  buttonFill: "#fef08a", 
+  buttonStroke: "#d97706", 
+  text: "#78350f", 
+};
+
+export const VAULT_COLORS = {
+  floorLocked: "#343943ff",  
+  floorOpen: "#334155", 
+  borderLocked: "#3397c2ff",  
+  borderOpen: "#60a5fa",
+  buttonLocked: "#202c3fff", 
+  buttonStrokeLocked: "#0284c7",
+  buttonStar: "#38bdf8", 
+  textLocked: "#94a3b8", 
+};
+
 export const FONT_FAMILY = "Fredoka, sans-serif";
 
 /** A full-design-size background rectangle. */

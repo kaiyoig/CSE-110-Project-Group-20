@@ -53,37 +53,45 @@ describe('MapGrid Tests', () => {
   test('isValidPlacement returns true for valid placements', () => {
     expect(grid.isValidPlacement(0, 0)).toBe(true);
     expect(grid.isValidPlacement(1, 2)).toBe(true);
+    expect(grid.isValidPlacement(0, 0, 2, 1)).toBe(true); // 2-wide span
+    expect(grid.isValidPlacement(0, 2, 1, 2)).toBe(true); // 2-tall span
   });
 
-  test('isValidPlacement returns false for invalid coordinates', () => {
+  test('isValidPlacement returns false for invalid coordinates and out-of-bound spans', () => {
     expect(grid.isValidPlacement(-1, 0)).toBe(false);
     expect(grid.isValidPlacement(0, -1)).toBe(false);
     expect(grid.isValidPlacement(2, 0)).toBe(false); // row index 2 is out of range for 2 rows
     expect(grid.isValidPlacement(0, 3)).toBe(false); // column index 3 is out of range for 3 columns
     expect(grid.isValidPlacement(5, 5)).toBe(false);
+    expect(grid.isValidPlacement(0, 2, 2, 1)).toBe(false); // 2-wide starting at col 2 overflows col 3
+    expect(grid.isValidPlacement(2, 0, 1, 2)).toBe(false); // 2-tall starting at row 2 overflows row 3
   });
 
   test('isValidPlacement returns false for occupied coordinates', () => {
-    grid.placeRoom(roomA, 1, 0);
-    expect(grid.isValidPlacement(1, 0)).toBe(false);
+    grid.placeRoom(roomA, 0, 1);
+    expect(grid.isValidPlacement(0, 1)).toBe(false);
+    expect(grid.isValidPlacement(0, 0, 2, 1)).toBe(false); // spanning room starting at (0, 0) with colSpan 2 collides with (0, 1)
   });
 
   //placeRoom tests
-  test('room is placed at valid coordinates', () => {
-    grid.placeRoom(roomA, 0, 0);
-    expect(grid.getRoomAt(0, 0)).toBe(roomA);
+  test('room is placed at valid coordinates and occupies all spanned entries', () => {
+    grid.placeRoom(roomA, 1, 0, 2, 1);
+    expect(grid.getRoomAt(1, 0)).toBe(roomA);
+    expect(grid.getRoomAt(1, 1)).toBe(roomA);
+    expect(grid.getRoomAt(1, 2)).toBeNull();
   });
 
-  test('throws an error when room is placed at an invalid coordinate', () => {
+  test('throws an error when room is placed at an invalid coordinate or overflows', () => {
     expect(() => grid.placeRoom(roomA, -1, 0)).toThrow('Invalid room placement');
     expect(() => grid.placeRoom(roomA, 2, 1)).toThrow('Invalid room placement');
-    expect(() => grid.placeRoom(roomA, 0, 3)).toThrow('Invalid room placement');
+    expect(() => grid.placeRoom(roomA, 0, 2, 2, 1)).toThrow('Invalid room placement'); // col overflow
   }); 
 
   test('throws an error when room is placed at an occupied coordinate', () => {
-    grid.placeRoom(roomA, 1, 0);
-    expect(() => grid.placeRoom(roomA, 1, 0)).toThrow('Invalid room placement');
-    expect(grid.getRoomAt(1, 0)).toBe(roomA);
+    grid.placeRoom(roomA, 0, 1);
+    expect(() => grid.placeRoom(roomA, 0, 1)).toThrow('Invalid room placement');
+    expect(() => grid.placeRoom(vault, 0, 0, 2, 1)).toThrow('Invalid room placement'); // collides with (0, 1)
+    expect(grid.getRoomAt(0, 1)).toBe(roomA);
   }); 
 
   //getRoomAt tests
@@ -99,8 +107,10 @@ describe('MapGrid Tests', () => {
   }); 
 
   test('returns the room located at the specified coordinate', () => {
-    grid.placeRoom(vault, 1, 2);
+    grid.placeRoom(vault, 0, 2, 1, 2); // 2 rows tall
+    expect(grid.getRoomAt(0, 2)).toBe(vault);
     expect(grid.getRoomAt(1, 2)).toBe(vault);
+    expect(grid.getRoomAt(2, 2)).toBeNull();
   }); 
 
   //getAllRooms tests
@@ -108,25 +118,25 @@ describe('MapGrid Tests', () => {
     expect(grid.getAllRooms()).toEqual([]);
   }); 
 
-  test('returns all placed rooms with their corresponding coordinates', () => {
+  test('returns all placed rooms with their corresponding coordinates and spans', () => {
     grid.placeRoom(roomA, 0, 0);
-    grid.placeRoom(roomB, 0, 2);
-    grid.placeRoom(vault, 1, 1);
+    grid.placeRoom(roomB, 1, 0, 2, 1); // 2x1
+    grid.placeRoom(vault, 0, 2, 1, 2); // 1x2
 
     const allRooms = grid.getAllRooms();
     expect(allRooms).toHaveLength(3);
     expect(allRooms).toEqual([
-    { room: roomA, row: 0, column: 0 },
-    { room: roomB, row: 0, column: 2 },
-    { room: vault, row: 1, column: 1 },
+      { room: roomA, row: 0, column: 0, colSpan: 1, rowSpan: 1 },
+      { room: roomB, row: 1, column: 0, colSpan: 2, rowSpan: 1 },
+      { room: vault, row: 0, column: 2, colSpan: 1, rowSpan: 2 },
     ]);
   }); 
 
   //findRoomPosition tests
-  test('returns the exact row an column of the specified room', () => {
-    grid.placeRoom(roomA, 1, 2);
+  test('returns the origin row and column of the specified room', () => {
+    grid.placeRoom(roomA, 0, 2, 1, 2);
     const pos = grid.findRoomPosition('room_a');
-    expect(pos).toEqual({ row: 1, column: 2 });
+    expect(pos).toEqual({ row: 0, column: 2 });
   });
 
   test('returns null if the room is not on the grid', () => {

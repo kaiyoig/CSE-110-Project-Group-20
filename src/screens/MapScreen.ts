@@ -6,7 +6,7 @@ import type { MapScreen as MapScreenContract, Unsubscribe } from "./contracts";
 import { Hud } from "./Hud";
 import { DESIGN_HEIGHT, DESIGN_WIDTH, fitLayer } from "./layout";
 import { Listeners } from "./listeners";
-import { COLORS, createText, setCursor } from "./theme";
+import { COLORS, BONUS_COLORS, VAULT_COLORS, createText, setCursor } from "./theme";
 
 export type RoomState = "open" | "locked" | "solved";
 
@@ -211,56 +211,120 @@ export class MapScreen implements MapScreenContract {
 
   private drawRoom(room: Room, geometry: RoomGeometry, state: RoomState): void {
     const [x, y, width, height] = geometry.bounds;
+    const isBonus = room.kind === "bonus";
+    const isVault = room.id === "vault";
+
+    // Floor Tile Styling
+    let floorFill: string =COLORS.room;
+    let floorStroke : string = "black";
+    let strokeWidth = 3;
+
+    if (state === "solved") {
+      floorFill = SOLVED_FLOOR;
+    } else if (isVault) {
+      floorFill = state === "locked" ? VAULT_COLORS.floorLocked : VAULT_COLORS.floorOpen;
+      floorStroke = state === "locked" ? VAULT_COLORS.borderLocked : VAULT_COLORS.borderOpen;
+      strokeWidth = 4;
+    } else if (state === "locked") {
+      floorFill = COLORS.locked;
+    } else if (isBonus) {
+      floorFill = BONUS_COLORS.floor;
+      floorStroke = BONUS_COLORS.border;
+    }
+
     this.floors.add(new Konva.Rect({
       x, y, width, height,
-      fill: state === "locked" ? COLORS.locked : state === "solved" ? SOLVED_FLOOR : COLORS.room,
-      stroke: "black", strokeWidth: 3,
+      fill: floorFill,
+      stroke: floorStroke,
+      strokeWidth: isBonus ? 3 : 3,
       name: `floor-${room.id}`,
     }));
 
+    // Lock Icon (if locked)
     if (state === "locked") this.controls.add(this.createLock(geometry.lock));
 
+    // Button Setup
     const button = new Konva.Group({
-      x: geometry.button[0], y: geometry.button[1],
+      x: geometry.button[0],
+      y: geometry.button[1],
       name: `room-button-${room.id}`,
       roomState: state,
       listening: state !== "solved",
     });
+
+    // Drop shadow rect
     button.add(new Konva.Rect({
-      y: 4, ...BUTTON,
+      y: 4,
+      ...BUTTON,
       cornerRadius: 24,
-      fill: COLORS.purple,
+      fill: isBonus ? BONUS_COLORS.buttonStroke : COLORS.purple,
       listening: false,
     }));
+
+    // Foreground button rect
+    let btnFill: string = COLORS.buttonDisabled;
+    let btnStroke: string = COLORS.purple;
+
+    if (isVault) {
+      btnFill = state === "open" ? COLORS.button : VAULT_COLORS.buttonLocked;
+      btnStroke = state === "open" ? COLORS.purple : VAULT_COLORS.buttonStrokeLocked;
+    } else if (state === "open") {
+      btnFill = isBonus ? BONUS_COLORS.buttonFill : COLORS.button;
+      btnStroke = isBonus ? BONUS_COLORS.buttonStroke : COLORS.purple;
+    }
+
     button.add(new Konva.Rect({
       ...BUTTON,
       cornerRadius: 24,
-      stroke: COLORS.purple, strokeWidth: 3,
-      fill: state === "open" ? COLORS.button : COLORS.buttonDisabled,
+      stroke: btnStroke,
+      strokeWidth: 3,
+      fill: btnFill,
     }));
 
-    const isVault = room.id === "vault";
+    // Icons: Star for Vault, Diamond for Bonus
+    let textOffsetX = 0;
+    let textWidth = BUTTON.width;
+
     if (isVault) {
       button.add(new Konva.Star({
         x: 49.5, y: 21.5,
         numPoints: 5, innerRadius: 4, outerRadius: 9,
-        fill: COLORS.purple,
+        fill: state === "locked" ? VAULT_COLORS.buttonStar : COLORS.purple,
         listening: false,
       }));
+      textOffsetX = 66;
+      textWidth = 101;
+    } else if (isBonus) {
+      // Add a diamond badge for bonus room
+      button.add(new Konva.RegularPolygon({
+        x: 46, y: 21.5,
+        sides: 4,
+        radius: 9,
+        fill: BONUS_COLORS.buttonStroke,
+        listening: false,
+      }));
+      textOffsetX = 60;
+      textWidth = 110;
     }
+
+    // Room Label
     button.add(createText({
-      x: isVault ? 66 : 0,
-      width: isVault ? 101 : BUTTON.width,
+      x: textOffsetX,
+      width: textWidth,
       height: BUTTON.height,
       text: room.name,
-      align: "center", verticalAlign: "middle",
-      fill: COLORS.purple,
+      align: "center",
+      verticalAlign: "middle",
+      fill: isBonus && state === "open" ? BONUS_COLORS.text : isVault && state === "locked" ? VAULT_COLORS.textLocked : COLORS.purple,
       listening: false,
       name: "room-label",
     }));
+
+    // Solved Label
     if (state === "solved") {
       button.add(createText({
-        y: BUTTON.height + 10, width: BUTTON.width,
+        y: BUTTON.height + 10,
+        width: BUTTON.width,
         text: "Solved",
         align: "center",
         fontSize: 20,
@@ -277,6 +341,7 @@ export class MapScreen implements MapScreenContract {
       this.roomClicks.emit(room.id);
       this.layer.batchDraw();
     });
+
     this.controls.add(button);
   }
 
