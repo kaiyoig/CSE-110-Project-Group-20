@@ -5,7 +5,7 @@ import { ScoreController, ScoreModel } from "../score";
 import type { Difficulty, ScoreSnapshot } from "../score";
 import { MapController } from "../map/MapController";
 import type { SwitchMapScreen } from "../map/MapController";
-import { Room, type RoomKind } from "../map/Room";
+import { Room } from "../map/Room";
 import { AnswerHistory } from "../validation/AnswerHistory";
 import type { AnswerRecord } from "../validation/AnswerHistory";
 import { AnswerValidator } from "../validation/AnswerValidator";
@@ -28,23 +28,7 @@ export interface GameDeps {
   roomScreen: RoomScreen;
 }
 
-interface RoomLayout {
-  id: string;
-  name: string;
-  kind: RoomKind;
-  prerequisites: string[];
-}
-
 export const VAULT_ID = "vault";
-
-/** The bank's Rooms, from the map layout in #30. */
-export const ROOM_LAYOUT: readonly RoomLayout[] = [
-  { id: "room_a", name: "Room A", kind: "main", prerequisites: [] },
-  { id: "room_b", name: "Room B", kind: "main", prerequisites: [] },
-  { id: "room_c", name: "Room C", kind: "main", prerequisites: ["room_a", "room_b"] },
-  { id: "room_X", name: "Room X", kind: "bonus", prerequisites: [] },
-  { id: VAULT_ID, name: "Vault", kind: "main", prerequisites: ["room_c"] },
-];
 
 /**
  * One Heist. Builds the heist-scoped modules and wires them to the
