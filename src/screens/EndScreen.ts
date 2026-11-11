@@ -136,6 +136,31 @@ export class EndScreen implements EndScreenContract {
     }
 
     const { outcome, snapshot } = result;
+
+    const finalAnswers = result.history.filter(
+      (record) => record.isLastStep
+    );
+
+    //Saves latest final submission by overwritting old with latest record
+    const latestByQuestion = new Map(
+      finalAnswers.map((record) => [record.question, record] as const)
+    );
+
+    //Convert into array so we can filter incorrect and correct questions
+    const uniqueFinalAnswers = [...latestByQuestion.values()];
+    console.log(uniqueFinalAnswers);
+
+    const incorrectQuestions = uniqueFinalAnswers.filter(
+    (record) => !record.isCorrect
+    );  
+
+    const correctQuestions = uniqueFinalAnswers.filter(
+    (record) => record.isCorrect
+    );
+
+    console.log("Incorrect:", incorrectQuestions);
+    console.log("Correct:", correctQuestions);
+
     const escaped = outcome === "escaped";
     this.outcome.text(escaped ? "Escaped!" : "Caught!");
     this.outcome.fill(escaped ? COLORS.green : COLORS.red);
