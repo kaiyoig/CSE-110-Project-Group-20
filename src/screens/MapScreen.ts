@@ -257,7 +257,9 @@ export class MapScreen implements MapScreenContract {
       y: 4,
       ...BUTTON,
       cornerRadius: 24,
-      fill: isBonus ? BONUS_COLORS.buttonStroke : state === "solved" ? COLORS.buttonSolved : COLORS.purple,
+      fill: isBonus && state !== "solved" ? BONUS_COLORS.buttonStroke : 
+      state === "solved" ? COLORS.buttonSolved 
+      : COLORS.purple,
       listening: false,
     }));
 
@@ -303,7 +305,7 @@ export class MapScreen implements MapScreenContract {
         x: 46,
         y: 21.5,
         data: "M 0 -8 L 8 0 L 0 8 L -8 0 Z",
-        fill: BONUS_COLORS.buttonStroke,
+        fill: state === "solved" ? COLORS.darkGreen : BONUS_COLORS.buttonStroke,
         listening: false,
         name: "bonus-badge",
       }));
