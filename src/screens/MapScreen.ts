@@ -299,12 +299,13 @@ export class MapScreen implements MapScreenContract {
       textWidth = 101;
     } else if (isBonus) {
       // Add a diamond badge for bonus room
-      button.add(new Konva.RegularPolygon({
-        x: 46, y: 21.5,
-        sides: 4,
-        radius: 9,
+      button.add(new Konva.Path({
+        x: 46,
+        y: 21.5,
+        data: "M 0 -8 L 8 0 L 0 8 L -8 0 Z",
         fill: BONUS_COLORS.buttonStroke,
         listening: false,
+        name: "bonus-badge",
       }));
       textOffsetX = 60;
       textWidth = 110;
