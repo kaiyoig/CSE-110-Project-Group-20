@@ -27,7 +27,7 @@ const FLOOR_PLAN: Record<string, RoomGeometry> = {
 
 const BUTTON = { width: 191, height: 43 };
 const TOOLTIP_WIDTH = 260;
-const SOLVED_FLOOR = "#a8d8a0";
+const SOLVED_FLOOR = "#a6eda7ff";
 
 // Boundaries of the interior corridor area on canvas
 const GRID_AREA = {
@@ -215,7 +215,7 @@ export class MapScreen implements MapScreenContract {
     const isVault = room.id === "vault";
 
     // Floor Tile Styling
-    let floorFill: string =COLORS.room;
+    let floorFill: string = COLORS.room;
     let floorStroke : string = "black";
     let strokeWidth = 3;
 
@@ -257,7 +257,7 @@ export class MapScreen implements MapScreenContract {
       y: 4,
       ...BUTTON,
       cornerRadius: 24,
-      fill: isBonus ? BONUS_COLORS.buttonStroke : COLORS.purple,
+      fill: isBonus ? BONUS_COLORS.buttonStroke : state === "solved" ? COLORS.buttonSolved : COLORS.purple,
       listening: false,
     }));
 
@@ -266,11 +266,14 @@ export class MapScreen implements MapScreenContract {
     let btnStroke: string = COLORS.purple;
 
     if (isVault) {
-      btnFill = state === "open" ? COLORS.button : VAULT_COLORS.buttonLocked;
-      btnStroke = state === "open" ? COLORS.purple : VAULT_COLORS.buttonStrokeLocked;
+      btnFill = state === "open" ? VAULT_COLORS.button : VAULT_COLORS.buttonLocked;
+      btnStroke =  state === "open" ? VAULT_COLORS.buttonStroke : VAULT_COLORS.blue;
     } else if (state === "open") {
       btnFill = isBonus ? BONUS_COLORS.buttonFill : COLORS.button;
       btnStroke = isBonus ? BONUS_COLORS.buttonStroke : COLORS.purple;
+    } else if (state === "solved") {
+      btnFill = COLORS.buttonSolved;
+      btnStroke = COLORS.darkGreen;
     }
 
     button.add(new Konva.Rect({
@@ -289,7 +292,7 @@ export class MapScreen implements MapScreenContract {
       button.add(new Konva.Star({
         x: 49.5, y: 21.5,
         numPoints: 5, innerRadius: 4, outerRadius: 9,
-        fill: state === "locked" ? VAULT_COLORS.buttonStar : COLORS.purple,
+        fill: state === "locked" ? VAULT_COLORS.blue : VAULT_COLORS.buttonStar,
         listening: false,
       }));
       textOffsetX = 66;
@@ -315,7 +318,11 @@ export class MapScreen implements MapScreenContract {
       text: room.name,
       align: "center",
       verticalAlign: "middle",
-      fill: isBonus && state === "open" ? BONUS_COLORS.text : isVault && state === "locked" ? VAULT_COLORS.textLocked : COLORS.purple,
+      fill: isBonus && state === "open" ? BONUS_COLORS.text : 
+        isVault && state === "open" ? VAULT_COLORS.buttonStroke : 
+        isVault && state === "locked" ? VAULT_COLORS.blue : 
+        state === "solved" ? COLORS.darkGreen :
+        COLORS.purple,
       listening: false,
       name: "room-label",
     }));
@@ -328,7 +335,7 @@ export class MapScreen implements MapScreenContract {
         text: "Solved",
         align: "center",
         fontSize: 20,
-        fill: COLORS.purple,
+        fill: COLORS.darkGreen,
         listening: false,
         name: "solved-label",
       }));
