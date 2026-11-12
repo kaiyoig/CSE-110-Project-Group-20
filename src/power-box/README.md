@@ -10,12 +10,21 @@ turns on one security light; when all wires are connected, security goes
 ## Using it in a Room
 
 `PowerBoxPuzzle` has the same shape as `BasicMultistepPuzzle`, so the Room
-Screen can build either one:
+Screen can build either one. Like `BasicMultistepPuzzle(equation, options)`,
+it doesn't make its own Questions: make them **once per Heist** with
+`generatePairs(difficulty)` and pass the same pairs in every time the player
+enters the Room. Otherwise the player could leave and re-enter to get new
+equations.
 
 ```ts
 import PowerBoxPuzzle from "../puzzles/power-box-puzzle";
+import { generatePairs } from "../power-box/power-box-generator";
 
-const puzzle = new PowerBoxPuzzle(difficulty, {
+// once, when the Heist's Rooms are made:
+const pairs = generatePairs(difficulty);
+
+// every time the player enters the Room:
+const puzzle = new PowerBoxPuzzle(pairs, {
   layer,                 // a Konva layer
   x: 720, y: 480,        // center of the panel
   width: 960, height: 520,
@@ -82,12 +91,14 @@ To add the power box as a second kind of Room:
 
 1. Give each Room a puzzle kind, e.g. `puzzle: "multistep" | "powerBox"` in
    `RoomConfig` / `ROOM_LAYOUT`.
-2. In the Room Screen, build `new PowerBoxPuzzle(difficulty, { layer, x, y, width, height })`
+2. When the Heist's Rooms are made (where each Room gets its Question), call
+   `generatePairs(difficulty)` once for a power box Room and keep the pairs.
+3. In the Room Screen, build `new PowerBoxPuzzle(pairs, { layer, x, y, width, height })`
    for a power box Room (the same panel spot as the multistep puzzle works),
    and call `destroy()` when leaving, like the multistep puzzle.
-3. Forward `onAnswer(answer, question)` the same way, but pass that
+4. Forward `onAnswer(answer, question)` the same way, but pass that
    `question` to `validateAnswer` instead of the Room's Question.
-4. The Room is Solved by the Step with `isLastStep: true`, exactly like the
+5. The Room is Solved by the Step with `isLastStep: true`, exactly like the
    multistep puzzle, so Game's ending logic doesn't change.
 
 ## Files
@@ -101,9 +112,9 @@ To add the power box as a second kind of Room:
 | `power-box-controller.ts` | Connects view presses to the model |
 | `../puzzles/power-box-puzzle.ts` | Puts the four together, ready for a Room |
 
-`PowerBoxPuzzle` takes optional `makeQuestion` (defaults to `getQuestion`)
-and `random` (defaults to `Math.random`), so tests can make the same box
-every time.
+`generatePairs` takes an optional `makeQuestion` (defaults to `getQuestion`)
+and `PowerBoxPuzzle` takes an optional `random` (defaults to `Math.random`),
+so tests can make the same box every time.
 
 ## Tests
 

@@ -92,6 +92,14 @@ describe("PowerBoxModel", () => {
     expect(() => box.isLeftMatched(1.5)).toThrow(RangeError);
   });
 
+  it("rejects two pairs with the same answer (an equation would have two matches)", () => {
+    const twins: PowerBoxPair[] = [
+      { question: { prompt: "x + 1 = 5", answer: "4" } },
+      { question: { prompt: "x * 2 = 8", answer: " 4 " } },
+    ];
+    expect(() => new PowerBoxModel(twins, [1, 0])).toThrow(RangeError);
+  });
+
   it("rejects an empty box or a bad right order", () => {
     expect(() => new PowerBoxModel([], [])).toThrow(RangeError);
     expect(() => new PowerBoxModel(PAIRS, [0, 1])).toThrow(RangeError);

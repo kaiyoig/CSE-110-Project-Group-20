@@ -26,6 +26,10 @@ export class PowerBoxModel {
 
   constructor(pairs: readonly PowerBoxPair[], rightOrder: readonly number[]) {
     if (pairs.length === 0) throw new RangeError("A power box needs at least one pair");
+    const answers = pairs.map((pair) => pair.question.answer.trim());
+    if (new Set(answers).size !== answers.length) {
+      throw new RangeError("Every pair needs a different answer, so each equation has one match");
+    }
     const sorted = [...rightOrder].sort((a, b) => a - b);
     if (sorted.length !== pairs.length || sorted.some((value, index) => value !== index)) {
       throw new RangeError("rightOrder must list every pair exactly once");
