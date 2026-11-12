@@ -80,6 +80,27 @@ function randomFactor(answerValue: number, isMultiplication: boolean): number {
 }
 
 /**
+ * determines whether or not the variable terms combine such that
+ * the remaining term is not x * 1 or x * 0
+ *
+ * if one multiplication, one division:
+ * will never combine to form x * 1 or x * 0
+ *
+ * if both multiplication:
+ * x * a and x * b must differ by at least 2, or combining them leaves x * 1 or x * 0
+ *
+ * if both division:
+ * x / a and x / b can't be equal to one another
+ */
+function canCombineVarTerms(answerValue: number, isMultiplication: boolean, factor: number, isMultiplicationRight: boolean, rightFactor: number): boolean {
+  if (isMultiplication !== isMultiplicationRight) return true;
+
+  if (isMultiplication) return Math.abs(factor - rightFactor) >= 2;
+
+  return factor !== rightFactor;
+}
+
+/**
  * generate QuestionParts that can be used to create a question prompt for any difficulty
  */
 function generateParts(): QuestionParts {
@@ -89,7 +110,11 @@ function generateParts(): QuestionParts {
   // if answer value is +/- 1, take multiplication route instead (x / 1 is trivial)
   const canDivide: boolean = Math.abs(answerValue) !== 1;
   const isMultiplication: boolean = !canDivide || Math.random() > 0.5;
-  // TODO
+  const facrtor: number = randomFactor(answerValue, isMultiplication);
+
+  // deciding variable term on right hand side
+  let isMultiplicationRight: boolean;
+  let rightFactor: number;
 }
 
 /**
