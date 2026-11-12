@@ -41,6 +41,11 @@ export class MapGrid {
 
     // Checks whether room can be placed at (row, column)
     public isValidPlacement(row: number, column: number, colSpan: number = 1, rowSpan: number = 1): boolean {
+        //make sure row and column are whole numbers 
+        if (!Number.isInteger(row) || !Number.isInteger(column) || colSpan <= 0 || rowSpan <= 0) {
+            return false;
+        }
+
         //check whether coordinates are within grid dimensions
         if (row < 0 || row + rowSpan > this.rows || column < 0 || column + colSpan > this.columns) {
             return false;
