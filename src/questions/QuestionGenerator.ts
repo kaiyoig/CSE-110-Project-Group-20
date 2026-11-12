@@ -1,7 +1,8 @@
 import { Question } from "./Question";
 import { type Difficulty } from "../score";
 
-const RANGE: number = 20; // answers can range from -RANGE to +RANGE
+const ANSWER_RANGE: number = 20; // answers can range from -RANGE to +RANGE
+const MAX_FACTOR: number = 10; // factors can range from 2 to MAX_FACTOR
 
 /**
  * helper functions for getting random numbers for question generation
@@ -55,6 +56,34 @@ function getFactors(n: number) : number[] {
 }
 
 /**
+ * question parts interface: contains every part a full hard question needs
+ * x (leftOperation: * or /) (leftFactor) (+ or -) (addedNumber) = x (rightOperation) (rightFactor) (+ or -) (rightNumber)
+ */
+interface QuestionParts{
+  answerValue: number;
+  isMultiplication: boolean;
+  factor: number;
+  addedNumber: number;
+  isMultiplicationRight: boolean;
+  rightFactor: number;
+  rightNumber: number;
+}
+
+/**
+ * generate QuestionParts that can be used to create a question prompt for any difficulty
+ */
+function generateParts(): QuestionParts {
+  // TODO
+}
+
+/**
+ * builds the prompt for a difficulty out of QuestionParts
+ */
+function formatPrompt(parts: QuestionParts, difficulty: Difficulty): string {
+  // TODO
+}
+
+/**
  * randomly generates and returns a Question
  *
  * Easy: 1 step to solve, e.g. x * 3 = 21, x + 4 = 5
@@ -68,24 +97,7 @@ function getFactors(n: number) : number[] {
  * @return a Question with a prompt in the format x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
  */
 export function getQuestion(difficulty: Difficulty): Question {
-  // generate answer
-  const answerValue: number = randomNonZero(RANGE);
+  const parts: QuestionParts = generateParts();
 
-  // if answer value is +/- 1, take multiplication route instead
-  const isMultiplication: boolean = Math.abs(answerValue) === 1 || Math.random() > 0.5;
-  let factor: number = 1;
-  if (isMultiplication) {
-    factor = randomInt(2, RANGE) * randomSign();
-  } else {
-    factor = getRandomDivisor(Math.abs(answerValue));
-  }
-  const addedNumber = randomNonZero(RANGE);
-
-  const rightHandSide = (isMultiplication ? answerValue * factor : answerValue / factor) + addedNumber;
-
-  // format prompt
-  // x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
-  const formattedPrompt: string = `x ${isMultiplication ? '*' : '/'} ${factor} ${addedNumber > 0 ? '+' : '-'} ${Math.abs(addedNumber)} = ${rightHandSide}`;
-
-  return {prompt: formattedPrompt, answer: String(answerValue)}
+  return { prompt: formatPrompt(parts, difficulty), answer: String(parts.answerValue) };
 }
