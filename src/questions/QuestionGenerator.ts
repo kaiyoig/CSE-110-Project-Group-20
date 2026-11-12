@@ -1,5 +1,5 @@
 import { Question } from "./Question";
-import { type Difficulty } from "../score";
+import { Difficulty } from "../score";
 
 const ANSWER_RANGE: number = 20; // answers can range from -RANGE to +RANGE
 const MAX_FACTOR: number = 10; // factors can range from 2 to MAX_FACTOR
@@ -149,10 +149,36 @@ export function generateParts(): QuestionParts {
 }
 
 /**
+ * formats positive / negative numbers as "+ n" or "- n"
+ */
+function formatSignedTerm(n: number): string {
+  return `${n >= 0 ? '+' : '-'} ${Math.abs(n)}`;
+}
+
+/**
  * builds the prompt for a difficulty out of QuestionParts
  */
 function formatPrompt(parts: QuestionParts, difficulty: Difficulty): string {
-  // TODO
+  const { answerValue, isMultiplication, factor, addedNumber, isMultiplicationRight, rightFactor, rightNumber } = parts;
+
+  const leftTerm: string = `x ${isMultiplication ? '*' : '/'} ${factor}`;
+  const leftTermValue: number = applyFactor(answerValue, isMultiplication, factor);
+
+  const rightTerm: string = `x ${isMultiplicationRight ? '*' : '/'} ${rightFactor}`;
+
+  switch (difficulty) {
+    case Difficulty.Easy:
+      // either use the factor or the added number
+      return Math.random() > 0.5
+        ? `${leftTerm} = ${leftTermValue}` 
+        : `x ${formatSignedTerm(addedNumber)} = ${answerValue + addedNumber}`;
+    case Difficulty.Medium:
+      return `${leftTerm} ${formatSignedTerm(addedNumber)} = ${leftTermValue + addedNumber}`;
+    case Difficulty.Hard:
+      return `${leftTerm} ${formatSignedTerm(addedNumber)} = ${rightTerm} ${formatSignedTerm(rightNumber)}`;
+    default:
+      throw new RangeError(`unknown difficulty: ${difficulty}`);
+  }
 }
 
 /**
