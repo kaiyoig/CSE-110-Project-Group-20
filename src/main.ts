@@ -24,7 +24,7 @@ const notifications = new NotificationManager();
 const leaderboard = new Leaderboard();
 const screens = new ScreenController(stage);
 
-const startScreen = new StartScreen(stage.width(), stage.height());
+const startScreen = new StartScreen(stage.width(), stage.height(), leaderboard);
 const mapScreen = new MapScreen(stage.width(), stage.height());
 const roomScreen = new RoomScreen(stage.width(), stage.height(), notifications);
 const endScreen = new EndScreen(stage.width(), stage.height());
