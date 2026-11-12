@@ -27,7 +27,7 @@ class Graph {
   private static readonly DEFAULT_X_STRETCH: number = 10.0;
   private static readonly DEFAULT_Y_STRETCH: number = 10.0;
   private static readonly DEFAULT_LINE_COLOR: string = "#ddeeee";
-  private static readonly GRAPH_COLOR: string = "#aaaa33";
+  private static readonly GRAPH_COLOR: string = "#66aa33";
   private static readonly AXIS_BIAS: number = 1.3;
   private static readonly TICK_SIZE: number = 0.15;
 
@@ -52,7 +52,7 @@ class Graph {
       points,
       tension: 1.0,
       stroke: config.lineColor ?? this.DEFAULT_LINE_COLOR,
-      strokeWidth: 2.0,
+      strokeWidth: 3.0,
     });
   }
 
