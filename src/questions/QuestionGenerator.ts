@@ -70,9 +70,25 @@ interface QuestionParts{
 }
 
 /**
+ * returns a random factor depending on operation
+ * multipliation: any factor from 2 to MAX_FACTOR works
+ * division: a divisor (other than one) of the answer value so that x / factor = whole number
+ */
+function randomFactor(answerValue: number, isMultiplication: boolean): number {
+  const factor: number = isMultiplication ? randomInt(2, MAX_FACTOR) : getRandomDivisor(Math.abs(answerValue));
+  return randomSign() * factor;
+}
+
+/**
  * generate QuestionParts that can be used to create a question prompt for any difficulty
  */
 function generateParts(): QuestionParts {
+  // generate answer
+  const answerValue: number = randomNonZero(ANSWER_RANGE);
+
+  // if answer value is +/- 1, take multiplication route instead (x / 1 is trivial)
+  const canDivide: boolean = Math.abs(answerValue) !== 1;
+  const isMultiplication: boolean = !canDivide || Math.random() > 0.5;
   // TODO
 }
 
