@@ -3,11 +3,20 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("konva", () => import("./testing/fakeKonva"));
 
 import { StartScreen } from "./StartScreen";
-import { Difficulty } from "../score";
+import { Difficulty, Leaderboard, type StorageLike } from "../score";
 import { visibleTexts } from "./testing/fakeKonva";
 
 function click(screen: StartScreen, name: string): void {
   screen.layer.findOne(`.${name}`)!.fire("click");
+}
+
+function memoryStorage(): StorageLike {
+  const data = new Map<string, string>();
+  return {
+    getItem: (k) => data.get(k) ?? null,
+    setItem: (k, v) => { data.set(k, v); },
+    removeItem: (k) => { data.delete(k); },
+  };
 }
 
 describe("StartScreen", () => {
@@ -85,13 +94,64 @@ describe("StartScreen", () => {
     expect(onCredits).toHaveBeenCalledOnce();
   });
 
-  it("show() and hide() toggle its layer", () => {
-    const screen = new StartScreen(1440, 900);
+  it("opens the High Scores modal on trophy click, switches difficulty tabs, and closes cleanly", () => {
+    const board = new Leaderboard(memoryStorage());
+    board.addEntry({
+      playerName: "Alice",
+      difficulty: Difficulty.Easy,
+      score: 14000,
+      timeSpentMs: 95_000,
+    });
+    board.addEntry({
+      playerName: "Bob",
+      difficulty: Difficulty.Hard,
+      score: 21500,
+      timeSpentMs: 185_000,
+    });
+
+    const screen = new StartScreen(1440, 900, board);
+
+    // Modal is hidden initially
+    expect(visibleTexts(screen.layer)).not.toContain("🏆 HIGH SCORES");
+
+    // Open modal -> defaults to Easy tab
+    click(screen, "trophy-button");
+    expect(visibleTexts(screen.layer)).toEqual(
+      expect.arrayContaining(["🏆 HIGH SCORES", "#1  Alice", "$14,000  (1:35)"]),
+    );
+
+    // Switch to Medium tab (empty state)
+    click(screen, "leaderboard-tab-medium");
+    expect(visibleTexts(screen.layer)).toContain(
+      "No Medium scores recorded yet.\nComplete a heist to claim #1!",
+    );
+
+    // Switch to Hard tab
+    click(screen, "leaderboard-tab-hard");
+    expect(visibleTexts(screen.layer)).toEqual(
+      expect.arrayContaining(["#1  Bob", "$21,500  (3:05)"]),
+    );
+
+    // Close modal
+    click(screen, "close-leaderboard");
+    expect(visibleTexts(screen.layer)).not.toContain("🏆 HIGH SCORES");
+  });
+
+  it("show() and hide() toggle its layer and reset both the difficulty sub-menu and modal", () => {
+    const board = new Leaderboard(memoryStorage());
+    const screen = new StartScreen(1440, 900, board);
+
+    click(screen, "trophy-button");
+    expect(visibleTexts(screen.layer)).toContain("🏆 HIGH SCORES");
 
     screen.hide();
     expect(screen.layer.visible()).toBe(false);
     screen.show();
     expect(screen.layer.visible()).toBe(true);
+    expect(visibleTexts(screen.layer)).not.toContain("🏆 HIGH SCORES");
+    expect(visibleTexts(screen.layer)).toEqual(
+      expect.arrayContaining(["PLAY", "TUTORIAL", "SETTINGS"]),
+    );
   });
 
   it("stops calling a callback once unsubscribed", () => {
@@ -100,6 +160,7 @@ describe("StartScreen", () => {
     const unsubscribe = screen.onStart(onStart);
 
     unsubscribe();
+    click(screen, "play-button");
     click(screen, "difficulty-easy");
 
     expect(onStart).not.toHaveBeenCalled();

@@ -1,5 +1,6 @@
 import Konva from "konva";
 import { Difficulty, DIFFICULTY_LABEL } from "../score";
+import { Leaderboard, type LeaderboardEntry } from "../score";
 import type { StartScreen as StartScreenContract, Unsubscribe } from "./contracts";
 import { DESIGN_HEIGHT, DESIGN_WIDTH, fitLayer } from "./layout";
 import { Listeners } from "./listeners";
@@ -25,10 +26,17 @@ export class StartScreen implements StartScreenContract {
   private readonly leaderboard = new Listeners<[]>();
   private readonly credits = new Listeners<[]>();
 
+  private readonly leaderboardBoard?: Leaderboard;
+  private readonly leaderboardModal = new Konva.Group({ visible: false });
+  private selectedBoardDifficulty: Difficulty = Difficulty.Easy;
+
   private readonly mainMenuGroup = new Konva.Group();
   private readonly difficultyGroup = new Konva.Group({ visible: false });
+  private readonly boardRowsGroup = new Konva.Group();
 
-  constructor(stageWidth: number, stageHeight: number) {
+  constructor(stageWidth: number, stageHeight: number, leaderboard?: Leaderboard) {
+    this.leaderboardBoard = leaderboard;
+
     fitLayer(this.layer, stageWidth, stageHeight);
     this.layer.add(createBackground());
 
@@ -73,6 +81,9 @@ export class StartScreen implements StartScreenContract {
     creditsText.on("mouseleave", () => setCursor(creditsText, ""));
     creditsText.on("click tap", () => this.credits.emit());
     this.layer.add(creditsText);
+
+    // Leaderboard displayed when trophy button is clicked
+    this.buildLeaderboardModal();
   }
 
   private drawVaultDoor(): void {
@@ -324,8 +335,144 @@ export class StartScreen implements StartScreenContract {
 
     badge.on("mouseenter", () => setCursor(badge, "pointer"));
     badge.on("mouseleave", () => setCursor(badge, ""));
-    badge.on("click tap", () => this.leaderboard.emit());
+    badge.on("click tap", () => {
+      this.leaderboard.emit();
+      if (this.leaderboardBoard) {
+        this.renderLeaderboardRows(this.selectedBoardDifficulty);
+        this.leaderboardModal.moveToTop();
+        this.leaderboardModal.show();
+        this.layer.batchDraw();
+      }
+    });
     return badge;
+  }
+
+  private buildLeaderboardModal(): void {
+    // Dimmed backdrop
+    const backdrop = new Konva.Rect({
+      width: DESIGN_WIDTH,
+      height: DESIGN_HEIGHT,
+      fill: "rgba(15, 18, 36, 0.72)",
+    });
+    this.leaderboardModal.add(backdrop);
+
+    // Modal card
+    const modalW = 720;
+    const modalH = 620;
+    const mx = (DESIGN_WIDTH - modalW) / 2;
+    const my = (DESIGN_HEIGHT - modalH) / 2;
+
+    this.leaderboardModal.add(new Konva.Rect({
+      x: mx,
+      y: my,
+      width: modalW,
+      height: modalH,
+      cornerRadius: 24,
+      fill: "#f4f4f6",
+      stroke: COLORS.purple,
+      strokeWidth: 4,
+    }));
+
+    this.leaderboardModal.add(createText({
+      x: mx,
+      y: my + 24,
+      width: modalW,
+      text: "🏆 HIGH SCORES",
+      align: "center",
+      fontSize: 36,
+      fill: COLORS.purple,
+    }));
+
+    // Difficulty Tabs (EASY / MEDIUM / HARD)
+    const tabW = 180;
+    const tabGap = 20;
+    const tabsStartX = mx + (modalW - (3 * tabW + 2 * tabGap)) / 2;
+
+    DIFFICULTIES.forEach((diff, idx) => {
+      const label = DIFFICULTY_LABEL[diff].toUpperCase();
+      this.leaderboardModal.add(this.createStyledMenuButton({
+        x: tabsStartX + idx * (tabW + tabGap),
+        y: my + 82,
+        width: tabW,
+        height: 46,
+        label,
+        fill: DIFFICULTY_COLORS[diff],
+        name: `leaderboard-tab-${label.toLowerCase()}`,
+        onClick: () => {
+          this.selectedBoardDifficulty = diff;
+          this.renderLeaderboardRows(diff);
+          this.layer.batchDraw();
+        },
+      }));
+    });
+
+    this.leaderboardModal.add(this.boardRowsGroup);
+
+    // Close button
+    this.leaderboardModal.add(this.createStyledMenuButton({
+      x: mx + (modalW - 200) / 2,
+      y: my + modalH - 76,
+      width: 200,
+      height: 52,
+      label: "CLOSE",
+      fill: "#ffffff",
+      name: "close-leaderboard",
+      onClick: () => {
+        this.leaderboardModal.hide();
+        this.layer.batchDraw();
+      },
+    }));
+
+    this.layer.add(this.leaderboardModal);
+  }
+
+  private renderLeaderboardRows(difficulty: Difficulty): void {
+    this.boardRowsGroup.destroyChildren();
+
+    const modalW = 720;
+    const mx = (DESIGN_WIDTH - modalW) / 2;
+    const startY = 300;
+    const entries: LeaderboardEntry[] = this.leaderboardBoard?.getEntries(difficulty) ?? [];
+
+    if (entries.length === 0) {
+      this.boardRowsGroup.add(createText({
+        x: mx,
+        y: startY + 110,
+        width: modalW,
+        text: `No ${DIFFICULTY_LABEL[difficulty]} scores recorded yet.\nComplete a heist to claim #1!`,
+        align: "center",
+        fontSize: 24,
+        fill: "#555566",
+      }));
+      return;
+    }
+
+    entries.slice(0, 8).forEach((entry, i) => {
+      const rowY = startY + i * 42;
+      const seconds = Math.floor(entry.timeSpentMs / 1000);
+      const mins = Math.floor(seconds / 60);
+      const secs = String(seconds % 60).padStart(2, "0");
+
+      this.boardRowsGroup.add(createText({
+        x: mx + 56,
+        y: rowY,
+        width: 340,
+        text: `#${i + 1}  ${entry.playerName}`,
+        align: "left",
+        fontSize: 22,
+        fill: COLORS.purple,
+      }));
+
+      this.boardRowsGroup.add(createText({
+        x: mx + 400,
+        y: rowY,
+        width: 260,
+        text: `$${entry.score.toLocaleString()}  (${mins}:${secs})`,
+        align: "right",
+        fontSize: 22,
+        fill: COLORS.purple,
+      }));
+    });
   }
 
   onStart(cb: (difficulty: Difficulty) => void): Unsubscribe {
@@ -350,6 +497,7 @@ export class StartScreen implements StartScreenContract {
 
   show(): void {
     // Reset to primary menu whenever returning to StartScreen
+    this.leaderboardModal.hide();
     this.difficultyGroup.hide();
     this.mainMenuGroup.show();
     this.layer.show();
