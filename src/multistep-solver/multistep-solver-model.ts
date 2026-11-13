@@ -89,14 +89,14 @@ class MultistepSolverModel {
       const value = current[index];
       current.splice(index - 1, 2);
 
-      const newSideArray = newSide.flatMap(term => {
-        if (typeof term === 'string') return term;
+      const newSideArray = newSide.flatMap((term, i) => {
+        if (typeof term === 'string' || newSide[i + 1] === '*' || newSide[i + 1] === '/') return term;
         return [term, oppositeOp, value];
       });
       newSide.splice(0, newSide.length, ...newSideArray);
 
       const currentArray = current.flatMap((term, i) => {
-        if (typeof term === 'string') return term;
+        if (typeof term === 'string' || current[i + 1] === '*' || current[i + 1] === '/') return term;
         if (i === index - 2) return term;
         return [term, oppositeOp, value];
       });
