@@ -1,6 +1,6 @@
 import Konva from 'konva';
 
-import RadioButton from './radio-button';
+import RadioButton from '../radio-button/radio-button';
 import type { GraphEntry } from './graph-match-model';
 
 export interface LaserMatchViewOptions {
