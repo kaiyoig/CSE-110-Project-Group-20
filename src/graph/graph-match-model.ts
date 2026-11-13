@@ -14,7 +14,9 @@ export type GraphShapeConfig = LineConfig | QuadraticConfig;
 class GraphMatchModel {
   private readonly graphEntries: GraphEntry[] = [];
 
+  /** Adds a graph configuration and derives its equation text. */
   public addGraph(config: GraphShapeConfig): void;
+  /** Parses and adds an equation using the default graph bounds. */
   public addGraph(equation: string): void;
   public addGraph(configOrEquation: GraphShapeConfig | string): void {
     const config: GraphConfig = typeof configOrEquation === 'string'
@@ -29,10 +31,12 @@ class GraphMatchModel {
     this.graphEntries.push([equation, graph]);
   }
 
+  /** Returns the model entries as `[equation, graph]` tuples. */
   public graphs(): GraphEntry[] {
     return [...this.graphEntries];
   }
 
+  /** Returns the graph at an internal model index. */
   public get(index: number): Konva.Group {
     const entry = this.graphEntries[index];
     if (!entry) {

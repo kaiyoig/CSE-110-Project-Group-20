@@ -43,6 +43,7 @@ function graphBounds(): Pick<GraphConfig, "minX" | "maxX" | "minY" | "maxY"> {
   };
 }
 
+/** Parses a supported linear or quadratic equation into graph coefficients. */
 export function parseEquation(equationString: string): GraphConfig {
   const equation = equationString.replace(/\s+/g, "");
   const quadratic = new RegExp(`^y=([+-]?${NUMBER})\\*x\\*x([+-])(${NUMBER})\\*x([+-])(${NUMBER})$`).exec(equation);
@@ -73,6 +74,7 @@ function signedTerm(value: number): string {
   return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
 }
 
+/** Converts a line or quadratic graph configuration into equation text. */
 export function equationFromConfig(graphConfig: GraphConfig): string {
   if (graphConfig.slope !== undefined && graphConfig.yOffset !== undefined) {
     return `y = ${graphConfig.slope} * x ${signedTerm(graphConfig.yOffset)}`;
@@ -211,12 +213,14 @@ class Graph {
     return graph;
   }
 
+  /** Creates a Konva group containing the axes, labels, ticks, and line. */
   static createLine(lineConfig: LineConfig): Konva.Group {
     return this.createGraph(lineConfig, (x: number): number => {
       return x * lineConfig.slope + lineConfig.yOffset;
     });
   }
 
+  /** Creates a Konva group containing the axes, labels, ticks, and quadratic. */
   static createQuadratic(quadraticConfig: QuadraticConfig): Konva.Group {
     return this.createGraph(quadraticConfig, (x: number): number => {
       return quadraticConfig.a * x * x

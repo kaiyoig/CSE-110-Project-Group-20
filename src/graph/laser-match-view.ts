@@ -36,9 +36,12 @@ class LaserMatchView {
   private pendingMatch?: { equation: string; graph: number };
   private laser?: Konva.Line;
 
+  /** Called with an equation and model graph index whenever a pair is selected. */
   public onMatch?: (equation: string, graph: number) => void;
+  /** Called after a correct pair has completed its laser animation. */
   public onSolved?: (equation: string) => void;
 
+  /** Builds the panel, equation rows, shuffled graph rows, and controls. */
   public constructor(options: LaserMatchViewOptions, entries: GraphEntry[]) {
     this.options = options;
     this.root = new Konva.Group({
@@ -140,6 +143,7 @@ class LaserMatchView {
     return this.laser;
   }
 
+  /** Connects a correct equation/graph pair with a two-blink laser. */
   public solve(equation: string): void {
     const target = this.pendingMatch?.equation === equation
       ? this.pendingMatch.graph
@@ -162,6 +166,7 @@ class LaserMatchView {
     });
   }
 
+  /** Shows a one-blink laser for an incorrect equation/graph pair. */
   public incorrect(equation: string, graph: number): void {
     const laser = this.drawLaser(equation, graph);
     if (!laser) return;
@@ -198,6 +203,7 @@ class LaserMatchView {
     this.graphRows.find(row => row.index === graph)?.radio.clear();
   }
 
+  /** Removes the view and its Konva objects from the layer. */
   public destroy(): void {
     this.onMatch = undefined;
     this.onSolved = undefined;
