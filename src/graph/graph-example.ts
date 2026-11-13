@@ -1,47 +1,34 @@
 import Konva from 'konva';
 
-import Graph from './graph';
+import LaserMatchPuzzle from '../puzzles/laser-match-puzzle';
 
 const stage = new Konva.Stage({
   container: 'container',
-  width: 1920,
-  height: 1080,
+  width: window.innerWidth,
+  height: window.innerHeight,
 });
 
 const layer = new Konva.Layer();
 stage.add(layer);
 
-let line = Graph.createLine({
-  minX: -2.0,
-  minY: 0.0,
-  maxX: 4.0,
-  maxY: 4.0,
-  xStretch: 20.0,
-  yStretch: 20.0,
-  slope: 1.0,
-  yOffset: 1.0,
-  lineColor: "#2f80ed",
-});
+const puzzle = new LaserMatchPuzzle(
+  'y = 1 * x + 1',
+  'y = -1 * x * x + 0 * x + 2',
+  'y = -2 * x - 1',
+  {
+    layer,
+    x: stage.width() / 2,
+    y: stage.height() / 2,
+    width: 800,
+    height: 480,
+    panelColor: '#4b5563',
+  },
+);
 
-line.x(200);
-line.y(200);
+puzzle.onAnswer = answer => {
+  console.log(`Selected graph ${answer.playerAnswer}; expected ${answer.correctAnswer}.`);
+};
 
-let quadratic = Graph.createQuadratic({
-  minX: -4.0,
-  minY: -4.0,
-  maxX: 4.0,
-  maxY: 4.0,
-  a: -1.0,
-  b: 2.0,
-  c: 1.0,
-  stepSize: 0.001,
-  xStretch: 20.0,
-  yStretch: 20.0,
-  lineColor: "#eb5757",
-});
-
-quadratic.x(700);
-quadratic.y(200);
-
-layer.add(line);
-layer.add(quadratic);
+puzzle.onPuzzleFinished = solved => {
+  console.log(solved ? 'Puzzle solved!' : 'Puzzle failed.');
+};
