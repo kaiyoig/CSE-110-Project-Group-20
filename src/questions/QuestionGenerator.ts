@@ -95,7 +95,7 @@ function randomFactor(answerValue: number, isMultiplication: boolean): number {
  * x / a - x / b = x * (b - a) / (a * b), so b - a can't be 0 (x * 0)
  * and |b - a| can't equal |a * b| (x * 1 or x * -1, e.g. x / 2 - x / -2 = x)
  */
-function canCombineVarTerms(answerValue: number, isMultiplication: boolean, factor: number, isMultiplicationRight: boolean, rightFactor: number): boolean {
+function canCombineVarTerms(isMultiplication: boolean, factor: number, isMultiplicationRight: boolean, rightFactor: number): boolean {
   if (isMultiplication !== isMultiplicationRight) return true;
 
   const difference: number = Math.abs(factor - rightFactor);
@@ -108,14 +108,14 @@ function canCombineVarTerms(answerValue: number, isMultiplication: boolean, fact
 /**
  * return the value of x (* or /) factor
  */
-export function applyFactor(answerValue: number, isMultiplication: boolean, factor: number): number {
+function applyFactor(answerValue: number, isMultiplication: boolean, factor: number): number {
   return isMultiplication ? answerValue * factor : answerValue / factor;
 }
 
 /**
  * generate QuestionParts that can be used to create a question prompt for any difficulty
  */
-export function generateParts(): QuestionParts {
+function generateParts(): QuestionParts {
   // generate answer
   const answerValue: number = randomNonZero(ANSWER_RANGE);
 
@@ -131,7 +131,7 @@ export function generateParts(): QuestionParts {
   do {
     isMultiplicationRight = !canDivide || Math.random() > 0.5;
     rightFactor = randomFactor(answerValue, isMultiplicationRight);
-  } while (!canCombineVarTerms(answerValue, isMultiplication, factor, isMultiplicationRight, rightFactor));
+  } while (!canCombineVarTerms(isMultiplication, factor, isMultiplicationRight, rightFactor));
 
   // the added number on the RHS should be equal to leftTerm + addedNumber - rightTerm
   // to make hard questions same number of steps, should != 0, but we could change this if we want
@@ -192,7 +192,7 @@ function formatPrompt(parts: QuestionParts, difficulty: Difficulty): string {
  *
  * @param difficulty: Difficulty.Easy / Medium / Hard (from score)
  * 
- * @return a Question with a prompt in the format x (* or /) (factor) (+ or -) (addedNumber) = (right hand side number)
+ * @return a Question of the specified difficulty, in the format as specified above
  */
 export function getQuestion(difficulty: Difficulty): Question {
   const parts: QuestionParts = generateParts();
