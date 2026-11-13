@@ -7,6 +7,7 @@ class RadioButton extends Konva.Group {
 
   public onClick?: () => void;
 
+  /** Creates a selectable circular control with selected/unselected fills. */
   public constructor(
     size: number,
     clickedFillColor: string,
@@ -33,28 +34,33 @@ class RadioButton extends Konva.Group {
     });
     this.add(this.innerCircle);
     this.on('click tap', () => {
-      if (!this.isListening() || this.isClicked()) return;
+      if (!this.listening() || this.isClicked()) return;
       this.click();
       this.onClick?.();
     });
   }
 
+  /** Prevents this button from responding to click events. */
   public disable(): void {
     this.listening(false);
   }
 
+  /** Allows this button to respond to click events again. */
   public enable(): void {
     this.listening(true);
   }
 
+  /** Fills the inner circle to mark the button selected. */
   public click(): void {
     this.innerCircle.fill(this.clickedFillColor);
   }
 
+  /** Removes the selection fill from the button. */
   public clear(): void {
     this.innerCircle.fill(this.unclickedFillColor);
   }
 
+  /** Reports whether the button is currently selected. */
   public isClicked(): boolean {
     return this.innerCircle.fill() === this.clickedFillColor;
   }
