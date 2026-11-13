@@ -1,6 +1,6 @@
 import Konva from 'konva';
 
-interface GraphConfig {
+export interface GraphConfig {
   minX: number;
   maxX: number;
   minY: number;
@@ -9,23 +9,84 @@ interface GraphConfig {
   xStretch?: number;
   yStretch?: number;
   lineColor?: string;
+  slope?: number;
+  yOffset?: number;
+  a?: number;
+  b?: number;
+  c?: number;
 }
 
-interface LineConfig extends GraphConfig {
+export interface LineConfig extends GraphConfig {
   slope: number;
   yOffset: number;
 }
 
-interface QuadraticConfig extends GraphConfig {
+export interface QuadraticConfig extends GraphConfig {
   a: number;
   b: number;
   c: number;
 }
 
+export const DEFAULT_GRAPH_MIN_X: number = -3.0;
+export const DEFAULT_GRAPH_MAX_X: number = 3.0;
+export const DEFAULT_GRAPH_MIN_Y: number = -3.0;
+export const DEFAULT_GRAPH_MAX_Y: number = 3.0;
+
+const NUMBER = "(?:\\d+(?:\\.\\d+)?|\\.\\d+)";
+
+function graphBounds(): Pick<GraphConfig, "minX" | "maxX" | "minY" | "maxY"> {
+  return {
+    minX: DEFAULT_GRAPH_MIN_X,
+    maxX: DEFAULT_GRAPH_MAX_X,
+    minY: DEFAULT_GRAPH_MIN_Y,
+    maxY: DEFAULT_GRAPH_MAX_Y,
+  };
+}
+
+export function parseEquation(equationString: string): GraphConfig {
+  const equation = equationString.replace(/\s+/g, "");
+  const quadratic = new RegExp(`^y=([+-]?${NUMBER})\\*x\\*x([+-])(${NUMBER})\\*x([+-])(${NUMBER})$`).exec(equation);
+  if (quadratic) {
+    const bounds = graphBounds();
+    return {
+      ...bounds,
+      a: Number(quadratic[1]),
+      b: Number(`${quadratic[2]}${quadratic[3]}`),
+      c: Number(`${quadratic[4]}${quadratic[5]}`),
+    };
+  }
+
+  const linear = new RegExp(`^y=([+-]?${NUMBER})\\*x([+-])(${NUMBER})$`).exec(equation);
+  if (linear) {
+    const bounds = graphBounds();
+    return {
+      ...bounds,
+      slope: Number(linear[1]),
+      yOffset: Number(`${linear[2]}${linear[3]}`),
+    };
+  }
+
+  throw new Error(`Unsupported equation: ${equationString}`);
+}
+
+function signedTerm(value: number): string {
+  return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+}
+
+export function equationFromConfig(graphConfig: GraphConfig): string {
+  if (graphConfig.slope !== undefined && graphConfig.yOffset !== undefined) {
+    return `y = ${graphConfig.slope} * x ${signedTerm(graphConfig.yOffset)}`;
+  }
+  if (graphConfig.a !== undefined && graphConfig.b !== undefined && graphConfig.c !== undefined) {
+    return `y = ${graphConfig.a} * x * x ${signedTerm(graphConfig.b)} * x ${signedTerm(graphConfig.c)}`;
+  }
+  throw new Error("Graph config must describe either a line or a quadratic.");
+}
+
 class Graph {
   private static readonly DEFAULT_STEP_SIZE: number = 0.001;
-  private static readonly DEFAULT_X_STRETCH: number = 10.0;
-  private static readonly DEFAULT_Y_STRETCH: number = 10.0;
+  private static readonly DEFAULT_X_STRETCH: number = 20.0;
+  private static readonly DEFAULT_Y_STRETCH: number = 20.0;
   private static readonly DEFAULT_LINE_COLOR: string = "#ddeeee";
   private static readonly GRAPH_COLOR: string = "#66aa33";
   private static readonly AXIS_BIAS: number = 1.3;
