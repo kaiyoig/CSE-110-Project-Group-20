@@ -20,9 +20,12 @@ class LaserMatchPuzzle implements Puzzle {
   private readonly view: LaserMatchView;
   private solvedCount: number = 0;
 
+  /** Called after each attempted equation/graph match. */
   public onAnswer?: (answer: StepAnswer) => void;
+  /** Called after all three pairs have been matched correctly. */
   public onPuzzleFinished?: (solved: boolean) => void;
 
+  /** Creates a three-equation laser matching puzzle. */
   public constructor(
     equationOne: string,
     equationTwo: string,
@@ -71,6 +74,7 @@ class LaserMatchPuzzle implements Puzzle {
     };
   }
 
+  /** Removes the puzzle view and clears its callbacks. */
   public destroy(): void {
     this.onAnswer = undefined;
     this.onPuzzleFinished = undefined;
