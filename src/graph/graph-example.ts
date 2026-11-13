@@ -26,7 +26,7 @@ const puzzle = new LaserMatchPuzzle(
 );
 
 puzzle.onAnswer = answer => {
-  console.log(`Selected graph ${answer.playerAnswer}; expected ${answer.correctAnswer}.`);
+  console.log(`Selected graph ${answer.playerAnswer}; expected ${answer.correctAnswer}. Last step? ${answer.isLastStep}`);
 };
 
 puzzle.onPuzzleFinished = solved => {
