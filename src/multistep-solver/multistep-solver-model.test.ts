@@ -146,4 +146,47 @@ describe('MultistepSolverModel', () => {
       expect(() => model.solve()).toThrow()
     })
   })
+
+  // Regression tests for issue #40. Both start from a generated Hard
+  // question (x * 4 - 14 = x / 14 + 41) and follow moves a player can make.
+  describe('moving a multiplicative factor', () => {
+    const hardQuestion = (): MultistepSolverModel => {
+      const model = new MultistepSolverModel()
+      addSide(model,
+        [variableTerm('x', true), '*', numberTerm('4'), numberTerm('14', false)],
+        [variableTerm('x', true), '/', numberTerm('14'), numberTerm('41')],
+      )
+      return model
+    }
+
+    it('applies the operation once to a multi-factor term on the other side', () => {
+      const model = hardQuestion()
+      model.moveLeftTerm(3) // add 14: x * 4 = x / 14 + 41 + 14
+      model.solve() // 41 + 14 = 55
+
+      model.moveRightTerm(2) // multiply by 14
+
+      expect(model.getLeftSide()).toEqual([
+        variableTerm('x', true), '*', numberTerm('4'), '*', numberTerm('14'),
+      ])
+      expect(model.getRightSide()).toEqual([
+        variableTerm('x', true), numberTerm('55'), '*', numberTerm('14'),
+      ])
+    })
+
+    it('applies the operation once to a multi-factor term on the same side', () => {
+      const model = hardQuestion()
+      model.moveRightTerm(0) // x * 4 - 14 - x / 14 = 41
+      expect(model.arithmeticProblems()).toEqual([])
+
+      model.moveLeftTerm(2) // divide by 4
+
+      expect(model.getLeftSide()).toEqual([
+        variableTerm('x', true),
+        numberTerm('14', false), '/', numberTerm('4'),
+        variableTerm('x', false), '/', numberTerm('14'), '/', numberTerm('4'),
+      ])
+      expect(model.getRightSide()).toEqual([numberTerm('41'), '/', numberTerm('4')])
+    })
+  })
 })
