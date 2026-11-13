@@ -54,16 +54,19 @@ export function generatePairs(
 /**
  * The order the answers appear in on the right side: a shuffle of
  * 0..count-1 that never leaves every answer straight across from its equation.
+ * It shuffles once (no retry loop), so even a bad `random` can't make it hang.
  */
 export function shuffledOrder(count: number, random: RandomFn = Math.random): number[] {
   const order = Array.from({ length: count }, (_, i) => i);
   if (count < 2) return order;
-  do {
-    // Fisher–Yates shuffle
-    for (let i = count - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
-    }
-  } while (order.every((value, index) => value === index));
+  // Fisher–Yates shuffle
+  for (let i = count - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // Landed on the original order: shift everything by one, which is never the original.
+  if (order.every((value, index) => value === index)) {
+    order.push(order.shift()!);
+  }
   return order;
 }

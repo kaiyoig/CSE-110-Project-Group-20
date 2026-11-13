@@ -91,6 +91,15 @@ describe("shuffledOrder", () => {
     }
   });
 
+  it("doesn't get stuck when random never changes", () => {
+    // Always 0.999 means "no swap", which used to loop forever.
+    for (const value of [0, 0.5, 0.999]) {
+      const order = shuffledOrder(4, () => value);
+      expect([...order].sort()).toEqual([0, 1, 2, 3]);
+      expect(order).not.toEqual([0, 1, 2, 3]);
+    }
+  });
+
   it("handles 0 and 1 rows", () => {
     expect(shuffledOrder(0)).toEqual([]);
     expect(shuffledOrder(1)).toEqual([0]);
