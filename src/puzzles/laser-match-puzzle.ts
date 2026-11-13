@@ -3,16 +3,8 @@ import Konva from 'konva';
 import GraphMatchModel from '../graph/graph-match-model';
 import LaserMatchView from '../graph/laser-match-view';
 
-export interface PuzzleAnswer {
-  playerAnswer: number;
-  correctAnswer: number;
-}
-
-export interface Puzzle {
-  onAnswer?: (answer: PuzzleAnswer) => void;
-  onPuzzleFinished?: (solved: boolean) => void;
-  destroy(): void;
-}
+import type { StepAnswer } from '../questions/Question'
+import Puzzle from './puzzle'
 
 export interface LaserMatchPuzzleOptions {
   layer: Konva.Layer;
@@ -28,7 +20,7 @@ class LaserMatchPuzzle implements Puzzle {
   private readonly view: LaserMatchView;
   private solvedCount: number = 0;
 
-  public onAnswer?: (answer: PuzzleAnswer) => void;
+  public onAnswer?: (answer: StepAnswer) => void;
   public onPuzzleFinished?: (solved: boolean) => void;
 
   public constructor(
@@ -61,7 +53,10 @@ class LaserMatchPuzzle implements Puzzle {
   private connectComponents(): void {
     this.view.onMatch = (equation, graph) => {
       const correctAnswer = this.model.graphs().findIndex(entry => entry[0] === equation);
-      this.onAnswer?.({ playerAnswer: graph, correctAnswer });
+
+      let isLastStep = (this.solvedCount + 1) === 3;
+
+      this.onAnswer?.({ playerAnswer: `${graph}`, correctAnswer: `${correctAnswer}`, isLastStep });
       if (graph === correctAnswer) {
         this.view.solve(equation);
       } else {
