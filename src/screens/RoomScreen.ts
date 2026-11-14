@@ -1,5 +1,6 @@
 import Konva from "konva";
 import BasicMultistepPuzzle from "../puzzles/basic-multistep-puzzle";
+import type { PuzzleInputType } from "../puzzles/basic-multistep-puzzle";
 import type { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
 import type { Question, StepAnswer } from "../questions/Question";
@@ -78,6 +79,8 @@ export class RoomScreen implements RoomScreenContract {
     this.clearFeedback();
     this.roomName.text(roomName);
 
+    const inputType: PuzzleInputType = Math.random() < 0.5 ? "keypad" : "typed";
+
     const puzzle = new BasicMultistepPuzzle(question.prompt, {
       layer: this.layer,
       x: PUZZLE.x,
@@ -87,7 +90,9 @@ export class RoomScreen implements RoomScreenContract {
       spacing: PUZZLE.spacing,
       blockSize: PUZZLE.blockSize,
       panelColor: "#4b5563",
+      inputType,
     });
+
     puzzle.onAnswer = (answer) => this.answers.emit(answer);
     this.puzzle = puzzle;
     this.feedback.moveToTop();

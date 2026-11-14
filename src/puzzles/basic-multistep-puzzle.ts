@@ -7,6 +7,9 @@ import MultistepSolverView from '../multistep-solver/multistep-solver-view'
 import { TermOp } from '../multistep-solver/types'
 import type { StepAnswer } from '../questions/Question'
 import TextInput from '../text-input/text-input'
+import KeypadInput from '../text-input/keypad-input'
+
+export type PuzzleInputType = "typed" | "keypad";
 
 export interface BasicMultistepPuzzleOptions {
   layer: Konva.Layer
@@ -21,6 +24,7 @@ export interface BasicMultistepPuzzleOptions {
   actionMenuHeight?: number
   inputWidth?: number
   inputHeight?: number
+  inputType?: PuzzleInputType
 }
 
 /** Self-contained composition of the multistep solver and its input controls. */
@@ -32,6 +36,8 @@ class BasicMultistepPuzzle {
   private readonly controller: MultistepSolverController
   private readonly actionMenu: ActionMenu
   private readonly input: TextInput
+  private readonly keypad: KeypadInput
+  private keypadAnswer = ''
 
   /** Called when the puzzle reaches its Finished state. */
   public onPuzzleFinished?: (solved: boolean) => void
@@ -75,6 +81,9 @@ class BasicMultistepPuzzle {
       ghostTextColor: '#aaaaaa',
     })
 
+    this.keypad = new KeypadInput();
+    options.layer.add(this.keypad);
+
     options.layer.add(this.actionMenu)
     this.view.setPosition(options.x, options.y)
     this.hideExternalControls()
@@ -98,6 +107,31 @@ class BasicMultistepPuzzle {
   }
 
   private connectComponents(): void {
+
+    this.keypad.onKeyPressed = (key) => {
+         if (key === "⌫") {
+        this.keypadAnswer = this.keypadAnswer.slice(0, -1)
+    } else if (key === "-") {
+        this.keypadAnswer = this.keypadAnswer.startsWith("-")
+            ? this.keypadAnswer.slice(1)
+            : "-" + this.keypadAnswer
+    } else {
+        this.keypadAnswer += key
+    }
+
+    this.keypad.onSubmit = () => {
+      const answer = this.keypadAnswer.trim();
+
+      if (answer === "" || answer === "-") return;
+
+      this.controller.arithmetic(answer);
+      
+    };
+
+
+    this.keypad.setAnswer(this.keypadAnswer);
+
+    }
     this.view.onTargetDropped = (index, isLeftSide) => {
       this.controller.operation(index, isLeftSide)
     }
@@ -122,6 +156,7 @@ class BasicMultistepPuzzle {
 
     this.controller.onAnswerSubmit = (_question, playerAnswer, correctAnswer, isLastStep) => {
       this.input.clear()
+      this.keypad.setAnswer('');
       if (playerAnswer === correctAnswer) this.controller.step()
       this.onAnswer?.({ playerAnswer, correctAnswer, isLastStep })
     }
@@ -129,14 +164,30 @@ class BasicMultistepPuzzle {
     this.controller.onStateChange = state => {
       if (state === 'Operation') {
         this.input.hide()
+        this.keypad.hide()
         this.actionMenu.show(this.actionMenuX(), this.options.y)
         return
       }
 
       if (state === 'Arithmetic') {
         this.actionMenu.hide()
-        this.input.show(this.options.x, this.inputY())
-        this.input.outlineColor('#aabbbb')
+        
+        if (this.options.inputType === "keypad") {
+        this.input.hide()
+
+        this.keypad.position({
+            x: this.options.x + this.options.width / 2 - 260,
+            y: this.options.y - 110
+        })
+
+        this.keypad.show()
+        this.keypad.moveToTop()
+
+        }else{
+          this.keypad.hide();
+          this.input.show(this.options.x, this.inputY())
+          this.input.outlineColor('#aabbbb')
+        }
         return
       }
 
@@ -156,6 +207,7 @@ class BasicMultistepPuzzle {
     this.view.destroy()
     this.actionMenu.destroy()
     this.input.destroy()
+    this.keypad.destroy();
   }
 
   private moveRequest(operation: TermOp): void {
@@ -177,6 +229,7 @@ class BasicMultistepPuzzle {
   private hideExternalControls(): void {
     this.actionMenu.hide()
     this.input.hide()
+    this.keypad.hide()
   }
 }
 
