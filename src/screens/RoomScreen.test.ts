@@ -127,4 +127,26 @@ describe("RoomScreen", () => {
   it("adds its layer to no Stage itself", () => {
     expect(screen.layer.getStage()).toBeNull();
   });
+
+  //random value below 0.5 selects keypad
+  it("selects keypad input when random value is below 0.5", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.25);
+
+    screen.setQuestion(question, "Room A");
+
+    expect(created[0].options.inputType).toBe("keypad");
+
+    random.mockRestore();
+   });
+  
+   //random value above 0.5 selects typed input
+  it("selects typed input when random value is above 0.5", () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.75);
+
+    screen.setQuestion(question, "Room A");
+
+    expect(created[0].options.inputType).toBe("typed");
+
+    random.mockRestore();
+  });
 });
