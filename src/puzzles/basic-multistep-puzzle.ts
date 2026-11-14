@@ -109,29 +109,43 @@ class BasicMultistepPuzzle {
   private connectComponents(): void {
 
     this.keypad.onKeyPressed = (key) => {
-         if (key === "⌫") {
-        this.keypadAnswer = this.keypadAnswer.slice(0, -1)
-    } else if (key === "-") {
-        this.keypadAnswer = this.keypadAnswer.startsWith("-")
-            ? this.keypadAnswer.slice(1)
-            : "-" + this.keypadAnswer
-    } else {
-        this.keypadAnswer += key
+        if (key === "C"){
+          this.keypadAnswer = ""
+        } else if (key === "⌫") {
+          this.keypadAnswer = this.keypadAnswer.slice(0, -1)
+        } else if (key === "-") {
+          this.keypadAnswer = this.keypadAnswer.startsWith("-")
+              ? this.keypadAnswer.slice(1)
+              : "-" + this.keypadAnswer
+        } else if (key === "/"){
+          if (this.keypadAnswer !== "" &&
+            this.keypadAnswer !== "-" &&
+            !this.keypadAnswer.includes("/")) {
+            this.keypadAnswer += "/"
+          }
+        } else {
+            this.keypadAnswer += key
+        }
+        this.keypad.setAnswer(this.keypadAnswer);
     }
 
     this.keypad.onSubmit = () => {
       const answer = this.keypadAnswer.trim();
 
-      if (answer === "" || answer === "-") return;
+      //Only allows whole number or fractions to be submitted
+      if (!/^-?\d+(\/\d+)?$/.test(answer)) return;
+
+      //Disallows division by 0
+      if (answer.includes("/") && Number(answer.split("/")[1]) === 0) {
+        return;
+    }
 
       this.controller.arithmetic(answer);
-      
+
     };
 
 
-    this.keypad.setAnswer(this.keypadAnswer);
-
-    }
+    
     this.view.onTargetDropped = (index, isLeftSide) => {
       this.controller.operation(index, isLeftSide)
     }
@@ -156,7 +170,8 @@ class BasicMultistepPuzzle {
 
     this.controller.onAnswerSubmit = (_question, playerAnswer, correctAnswer, isLastStep) => {
       this.input.clear()
-      this.keypad.setAnswer('');
+      this.keypadAnswer = ''
+      this.keypad.setAnswer('')
       if (playerAnswer === correctAnswer) this.controller.step()
       this.onAnswer?.({ playerAnswer, correctAnswer, isLastStep })
     }
@@ -177,7 +192,7 @@ class BasicMultistepPuzzle {
 
         this.keypad.position({
             x: this.options.x + this.options.width / 2 - 260,
-            y: this.options.y - 110
+            y: this.options.y - 220
         })
 
         this.keypad.show()

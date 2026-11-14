@@ -38,12 +38,30 @@ export default class KeypadInput extends Konva.Group {
         });
 
         this.add(displayBackground, this.answerDisplay);
+        const keypadBackground = new Konva.Rect({
+            x: -12,
+            y: 53,
+            width: 224,
+            height: 314,
+            fill: "#FFDA47",
+            stroke: "#38255D",
+            strokeWidth: 4,
+            cornerRadius: 24,
+            shadowColor: "#38255D",
+            shadowBlur: 0,
+            shadowOffsetY: 6,
+            shadowOpacity: 1,
+            listening: false
+        });
+
+        this.add(keypadBackground);
 
         const keys = [
             "1", "2", "3",
             "4", "5", "6",
             "7", "8", "9",
-            "-", "0", "⌫"
+            "-", "0", "/",
+            "C", "⌫"
         ];
 
         keys.forEach((key, index) => {
@@ -57,7 +75,7 @@ export default class KeypadInput extends Konva.Group {
             const background = new Konva.Rect({
                 width: 60,
                 height: 50,
-                fill: "#eeeeee",
+                fill: "#F9F9FB",
                 stroke: "#38255D",
                 strokeWidth: 3,
                 cornerRadius: 10
@@ -85,7 +103,7 @@ export default class KeypadInput extends Konva.Group {
 
         const submitButton = new Konva.Group({
             x: 0,
-            y: 310
+            y: 390
         });
 
         const submitBackground = new Konva.Rect({
