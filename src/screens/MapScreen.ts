@@ -1,11 +1,12 @@
 import Konva from "konva";
 import type { Room } from "../map/Room";
+import type { MapGrid } from "../map/MapGrid";
 import type { AccessDeniedPayload } from "../map/MapController";
 import type { MapScreen as MapScreenContract, Unsubscribe } from "./contracts";
 import { Hud } from "./Hud";
 import { DESIGN_HEIGHT, DESIGN_WIDTH, fitLayer } from "./layout";
 import { Listeners } from "./listeners";
-import { COLORS, createText, setCursor } from "./theme";
+import { COLORS, BONUS_COLORS, VAULT_COLORS, createText, setCursor } from "./theme";
 
 export type RoomState = "open" | "locked" | "solved";
 
@@ -15,7 +16,7 @@ interface RoomGeometry {
   lock: [x: number, y: number];
 }
 
-/** The bank's floor plan from #30, keyed by Room id. */
+/** Fallback floor plan from #30, keyed by Room id. */
 const FLOOR_PLAN: Record<string, RoomGeometry> = {
   room_a: { bounds: [116, 81, 368, 275], button: [204, 198], lock: [137, 101] },
   room_b: { bounds: [484, 81, 366, 275], button: [573, 198], lock: [505, 101] },
@@ -26,24 +27,30 @@ const FLOOR_PLAN: Record<string, RoomGeometry> = {
 
 const BUTTON = { width: 191, height: 43 };
 const TOOLTIP_WIDTH = 260;
-const SOLVED_FLOOR = "#a8d8a0";
+const SOLVED_FLOOR = "#a6eda7ff";
 
-/**
- * The Map Screen: the floor plan, each Room's locked / Solved state, and the
- * HUD. Reworked from #30's createMapScreen (Calista, chartono) as a passive
- * screen on its own layer of the shared stage.
- */
+// Boundaries of the interior corridor area on canvas
+const GRID_AREA = {
+  x: 116,
+  y: 81,
+  width: 1207,
+  height: 737,
+  gap: 16,
+};
+
 export class MapScreen implements MapScreenContract {
   readonly layer = new Konva.Layer();
 
   private readonly roomClicks = new Listeners<[string]>();
   private readonly floors = new Konva.Group({ listening: false });
   private readonly controls = new Konva.Group();
-  private readonly player: Konva.Circle;
   private readonly hud = new Hud();
   private readonly tooltip: Konva.Group;
   private readonly tooltipBackground: Konva.Rect;
   private readonly tooltipText: Konva.Text;
+
+  /** Dynamic cache of active room positions for anchoring access-denied tooltips */
+  private activeGeometry: Map<string, RoomGeometry> = new Map();
 
   constructor(stageWidth: number, stageHeight: number) {
     fitLayer(this.layer, stageWidth, stageHeight);
@@ -53,23 +60,14 @@ export class MapScreen implements MapScreenContract {
       fill: COLORS.background,
       listening: false,
     }));
-    // Corridor / overall floor plan.
+    // Corridor / overall floor plan boundary.
     this.layer.add(new Konva.Rect({
-      x: 116, y: 81, width: 1207, height: 737,
+      x: GRID_AREA.x, y: GRID_AREA.y, width: GRID_AREA.width, height: GRID_AREA.height,
       fill: "rgba(217,217,217,0.5)",
       stroke: "black", strokeWidth: 3,
       listening: false,
     }));
     this.layer.add(this.floors);
-
-    this.player = new Konva.Circle({
-      x: 939.5, y: 773.5, radius: 18.5,
-      fill: "#ff0404",
-      stroke: "black", strokeWidth: 3,
-      listening: false,
-      name: "player",
-    });
-    this.layer.add(this.player);
     this.layer.add(this.controls);
     this.layer.add(this.hud);
 
@@ -91,10 +89,68 @@ export class MapScreen implements MapScreenContract {
     this.layer.add(this.tooltip);
   }
 
+  /**
+   * Renders the 2D MapGrid dynamically according to rows and columns.
+   */
+  setGrid(grid: MapGrid, solvedRoomIds: ReadonlySet<string>): void {
+    this.floors.destroyChildren();
+    this.controls.destroyChildren();
+    this.tooltip.visible(false);
+    this.activeGeometry.clear();
+
+    const cols = grid.columns;
+    const rows = grid.rows;
+
+    const totalGapW = (cols - 1) * GRID_AREA.gap;
+    const totalGapH = (rows - 1) * GRID_AREA.gap;
+
+    const tileWidth = Math.floor((GRID_AREA.width - totalGapW) / cols);
+    const tileHeight = Math.floor((GRID_AREA.height - totalGapH) / rows);
+
+    const placedRooms = grid.getAllRooms();
+
+    for (const { room, row, column, colSpan, rowSpan } of placedRooms) {
+      const rx = GRID_AREA.x + column * (tileWidth + GRID_AREA.gap);
+      const ry = GRID_AREA.y + row * (tileHeight + GRID_AREA.gap);
+
+      const roomWidth = colSpan * tileWidth + (colSpan - 1) * GRID_AREA.gap;
+      const roomHeight = rowSpan * tileHeight + (rowSpan - 1) * GRID_AREA.gap;
+
+      // Centered button inside tile bounds
+      const bx = rx + Math.max(0, (roomWidth - BUTTON.width) / 2);
+      const by = ry + Math.max(0, (roomHeight - BUTTON.height) / 2);
+
+      // Lock icon at top-left of the room tile
+      const lx = rx + 20;
+      const ly = ry + 20;
+
+      const geometry: RoomGeometry = {
+        bounds: [rx, ry, roomWidth, roomHeight],
+        button: [bx, by],
+        lock: [lx, ly],
+      };
+
+      this.activeGeometry.set(room.id, geometry);
+
+      const state: RoomState = solvedRoomIds.has(room.id)
+        ? "solved"
+        : room.isAccessible(solvedRoomIds) ? "open" : "locked";
+
+      this.drawRoom(room, geometry, state);
+    }
+
+    this.layer.batchDraw();
+  }
+
+  /**
+   * Original contract method: renders rooms using the fallback FLOOR_PLAN
+   * (maintains full backward compatibility with existing tests).
+   */
   setRooms(rooms: readonly Room[], solvedRoomIds: ReadonlySet<string>): void {
     this.floors.destroyChildren();
     this.controls.destroyChildren();
     this.tooltip.visible(false);
+    this.activeGeometry.clear();
 
     for (const room of rooms) {
       const geometry = FLOOR_PLAN[room.id];
@@ -102,6 +158,8 @@ export class MapScreen implements MapScreenContract {
         console.warn(`MapScreen has no floor plan for Room "${room.id}"`);
         continue;
       }
+      this.activeGeometry.set(room.id, geometry);
+
       const state: RoomState = solvedRoomIds.has(room.id)
         ? "solved"
         : room.isAccessible(solvedRoomIds) ? "open" : "locked";
@@ -115,10 +173,9 @@ export class MapScreen implements MapScreenContract {
   }
 
   showAccessDenied(payload: AccessDeniedPayload): void {
-    const geometry = FLOOR_PLAN[payload.roomId];
+    const geometry = this.activeGeometry.get(payload.roomId) ?? FLOOR_PLAN[payload.roomId];
     if (!geometry) return;
 
-    // #30's wording, kept at the map author's request.
     const required = payload.missingPrerequisiteNames.join(", ");
     this.tooltipText.text(
       required
@@ -142,12 +199,6 @@ export class MapScreen implements MapScreenContract {
     return this.roomClicks.add(cb);
   }
 
-  /** Moves the player dot. Not part of the contract; Game doesn't call it. */
-  setPlayerPosition(x: number, y: number): void {
-    this.player.position({ x, y });
-    this.layer.batchDraw();
-  }
-
   show(): void {
     this.layer.show();
     this.layer.batchDraw();
@@ -160,60 +211,134 @@ export class MapScreen implements MapScreenContract {
 
   private drawRoom(room: Room, geometry: RoomGeometry, state: RoomState): void {
     const [x, y, width, height] = geometry.bounds;
+    const isBonus = room.kind === "bonus";
+    const isVault = room.id === "vault";
+
+    // Floor Tile Styling
+    let floorFill: string = COLORS.room;
+    let floorStroke : string = "black";
+    let strokeWidth = 3;
+
+    if (state === "solved") {
+      floorFill = SOLVED_FLOOR;
+    } else if (isVault) {
+      floorFill = state === "locked" ? VAULT_COLORS.floorLocked : VAULT_COLORS.floorOpen;
+      floorStroke = state === "locked" ? VAULT_COLORS.borderLocked : VAULT_COLORS.borderOpen;
+      strokeWidth = 4;
+    } else if (state === "locked") {
+      floorFill = COLORS.locked;
+    } else if (isBonus) {
+      floorFill = BONUS_COLORS.floor;
+      floorStroke = BONUS_COLORS.border;
+    }
+
     this.floors.add(new Konva.Rect({
       x, y, width, height,
-      fill: state === "locked" ? COLORS.locked : state === "solved" ? SOLVED_FLOOR : COLORS.room,
-      stroke: "black", strokeWidth: 3,
+      fill: floorFill,
+      stroke: floorStroke,
+      strokeWidth: isBonus ? 3 : 3,
       name: `floor-${room.id}`,
     }));
 
+    // Lock Icon (if locked)
     if (state === "locked") this.controls.add(this.createLock(geometry.lock));
 
+    // Button Setup
     const button = new Konva.Group({
-      x: geometry.button[0], y: geometry.button[1],
+      x: geometry.button[0],
+      y: geometry.button[1],
       name: `room-button-${room.id}`,
       roomState: state,
-      listening: state !== "solved", // a Solved Room can't be entered again
+      listening: state !== "solved",
     });
+
+    // Drop shadow rect
     button.add(new Konva.Rect({
-      y: 4, ...BUTTON,
+      y: 4,
+      ...BUTTON,
       cornerRadius: 24,
-      fill: COLORS.purple,
+      fill: isBonus && state !== "solved" ? BONUS_COLORS.buttonStroke : 
+      state === "solved" ? COLORS.buttonSolved 
+      : COLORS.purple,
       listening: false,
     }));
+
+    // Foreground button rect
+    let btnFill: string = COLORS.buttonDisabled;
+    let btnStroke: string = COLORS.purple;
+
+    if (isVault) {
+      btnFill = state === "open" ? VAULT_COLORS.button : VAULT_COLORS.buttonLocked;
+      btnStroke =  state === "open" ? VAULT_COLORS.buttonStroke : VAULT_COLORS.blue;
+    } else if (state === "open") {
+      btnFill = isBonus ? BONUS_COLORS.buttonFill : COLORS.button;
+      btnStroke = isBonus ? BONUS_COLORS.buttonStroke : COLORS.purple;
+    } else if (state === "solved") {
+      btnFill = COLORS.buttonSolved;
+      btnStroke = COLORS.darkGreen;
+    }
+
     button.add(new Konva.Rect({
       ...BUTTON,
       cornerRadius: 24,
-      stroke: COLORS.purple, strokeWidth: 3,
-      fill: state === "open" ? COLORS.button : COLORS.buttonDisabled,
+      stroke: btnStroke,
+      strokeWidth: 3,
+      fill: btnFill,
     }));
 
-    const isVault = room.id === "vault";
+    // Icons: Star for Vault, Diamond for Bonus
+    let textOffsetX = 0;
+    let textWidth = BUTTON.width;
+
     if (isVault) {
       button.add(new Konva.Star({
         x: 49.5, y: 21.5,
         numPoints: 5, innerRadius: 4, outerRadius: 9,
-        fill: COLORS.purple,
+        fill: state === "locked" ? VAULT_COLORS.blue : VAULT_COLORS.buttonStar,
         listening: false,
       }));
+      textOffsetX = 66;
+      textWidth = 101;
+    } else if (isBonus) {
+      // Add a diamond badge for bonus room
+      button.add(new Konva.Path({
+        x: 46,
+        y: 21.5,
+        data: "M 0 -8 L 8 0 L 0 8 L -8 0 Z",
+        fill: state === "solved" ? COLORS.darkGreen : BONUS_COLORS.buttonStroke,
+        listening: false,
+        name: "bonus-badge",
+      }));
+      textOffsetX = 60;
+      textWidth = 110;
     }
+
+    // Room Label
     button.add(createText({
-      x: isVault ? 66 : 0,
-      width: isVault ? 101 : BUTTON.width,
+      x: textOffsetX,
+      width: textWidth,
       height: BUTTON.height,
       text: room.name,
-      align: "center", verticalAlign: "middle",
-      fill: COLORS.purple,
+      align: "center",
+      verticalAlign: "middle",
+      fill: isBonus && state === "open" ? BONUS_COLORS.text : 
+        isVault && state === "open" ? VAULT_COLORS.buttonStroke : 
+        isVault && state === "locked" ? VAULT_COLORS.blue : 
+        state === "solved" ? COLORS.darkGreen :
+        COLORS.purple,
       listening: false,
       name: "room-label",
     }));
+
+    // Solved Label
     if (state === "solved") {
       button.add(createText({
-        y: BUTTON.height + 10, width: BUTTON.width,
+        y: BUTTON.height + 10,
+        width: BUTTON.width,
         text: "Solved",
         align: "center",
         fontSize: 20,
-        fill: COLORS.purple,
+        fill: COLORS.darkGreen,
         listening: false,
         name: "solved-label",
       }));
@@ -223,10 +348,10 @@ export class MapScreen implements MapScreenContract {
     button.on("mouseleave", () => setCursor(button, ""));
     button.on("click tap", () => {
       this.tooltip.visible(false);
-      // MapController decides whether entry is allowed.
       this.roomClicks.emit(room.id);
       this.layer.batchDraw();
     });
+
     this.controls.add(button);
   }
 

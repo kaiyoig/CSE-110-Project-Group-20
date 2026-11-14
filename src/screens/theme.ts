@@ -8,12 +8,35 @@ export const COLORS = {
   locked: "#5b5b5b",
   purple: "#342657",
   button: "#f4f4f4",
-  buttonDisabled: "rgba(244,244,244,0.5)",
+  buttonDisabled: "rgba(183, 183, 183, 0.73)",
+  buttonSolved: "#8ee4a2ff",
   gold: "#ffd447",
   green: "#81ff38",
+  darkGreen: "#02671dff",
   red: "#ff5a5a",
   white: "#ffffff",
 } as const;
+
+export const BONUS_COLORS = {
+  floor: "rgba(238, 229, 162, 1)", 
+  border: "#b45309",
+  buttonFill: "#fef08a", 
+  buttonStroke: "#d97706", 
+  text: "#78350f", 
+};
+
+export const VAULT_COLORS = {
+  floorLocked: "#343943ff",  
+  floorOpen: "#334155", 
+  borderLocked: "#3397c2ff",  
+  borderOpen: "#60a5fa",
+  button: "#2f2e3bff", 
+  buttonLocked: '#828aaaff',
+  buttonStroke: "#0284c7",
+  buttonStar: "#38bdf8", 
+  textLocked: "#94a3b8", 
+  blue: "#053072ff",
+};
 
 export const FONT_FAMILY = "Fredoka, sans-serif";
 

@@ -1,6 +1,7 @@
 import { Room } from "./Room";
 import type { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
+import { MapGrid } from "./MapGrid";
 
 export interface SwitchMapScreen {
   screen: string;
@@ -26,11 +27,14 @@ export class MapController {
   private readonly solved: Set<string> = new Set();
   public currentScreen: string = "map";
   public activeRoom: Room | null = null;
+  public grid: MapGrid;
 
   public onScreenChange: ((event: SwitchMapScreen) => void) | null = null;
   public onAccessDenied: ((payload: AccessDeniedPayload) => void) | null = null;
 
-  constructor(private readonly notifications: NotificationManager) {}
+  constructor(private readonly notifications: NotificationManager, grid: MapGrid) {
+    this.grid = grid;
+  }
 
   /** Ids of the Solved Rooms. */
   public get solvedRooms(): ReadonlySet<string> {

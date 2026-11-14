@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { Game, ROOM_LAYOUT, VAULT_ID } from "./Game";
+import { Game, VAULT_ID } from "./Game";
 import { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
 import {
@@ -10,6 +10,7 @@ import {
   WRONG_ANSWER_PENALTY_SECONDS,
 } from "../score";
 import type { Room } from "../map/Room";
+import type { MapGrid } from "../map/MapGrid";
 import type { AccessDeniedPayload } from "../map/MapController";
 import type { Question, StepAnswer } from "../questions/Question";
 import type { ScreenController } from "../screens/ScreenController";
@@ -37,9 +38,10 @@ class Slot<T extends unknown[]> {
   }
 }
 
-/** MapScreen fake: records what Game gives it and lets tests click Rooms. */
+/** MapScreen fake: records grid state from Game and provides room click hooks. */
 class FakeMapScreen implements MapScreen {
   readonly layer = {} as Konva.Layer;
+  grid: MapGrid | null = null;
   rooms: readonly Room[] = [];
   solved: string[] = [];
   hud: Hud | null = null;
@@ -48,26 +50,36 @@ class FakeMapScreen implements MapScreen {
 
   show(): void {}
   hide(): void {}
-  setRooms(rooms: readonly Room[], solvedRoomIds: ReadonlySet<string>): void {
-    this.rooms = rooms;
+
+  setGrid(grid: MapGrid, solvedRoomIds: ReadonlySet<string>): void {
+    this.grid = grid;
+    this.rooms = grid.getAllRooms().map((placed) => placed.room);
     this.solved = [...solvedRoomIds];
   }
+
   setHud(timeRemainingMs: number, timeLimitMs: number, money: number): void {
     this.hud = { timeRemainingMs, timeLimitMs, money };
   }
+
   showAccessDenied(payload: AccessDeniedPayload): void {
     this.denied.push(payload);
   }
+
   onRoomClick(cb: (id: string) => void): Unsubscribe {
     return this.roomClick.set(cb);
   }
+
   click(id: string): void {
     this.roomClick.fire(id);
   }
+
   room(id: string): Room {
-    const room = this.rooms.find((r) => r.id === id);
-    if (!room) throw new Error(`no room ${id}`);
-    return room;
+    const target = id.toLowerCase();
+    const found = this.rooms.find(
+      (r) => r.id === id || r.id.toLowerCase() === target
+    );
+    if (!found) throw new Error(`no room ${id}`);
+    return found;
   }
 }
 
@@ -83,23 +95,29 @@ class FakeRoomScreen implements RoomScreen {
 
   show(): void {}
   hide(): void {}
+
   setQuestion(question: Question, roomName: string): void {
     this.question = question;
     this.roomName = roomName;
     this.setQuestionCalls += 1;
   }
+
   setHud(timeRemainingMs: number, timeLimitMs: number, money: number): void {
     this.hud = { timeRemainingMs, timeLimitMs, money };
   }
+
   onAnswer(cb: (answer: StepAnswer) => void): Unsubscribe {
     return this.answer.set(cb);
   }
+
   onExit(cb: () => void): Unsubscribe {
     return this.exit.set(cb);
   }
+
   submit(answer: StepAnswer): void {
     this.answer.fire(answer);
   }
+
   leave(): void {
     this.exit.fire();
   }
@@ -178,18 +196,22 @@ describe("Game", () => {
     game.start();
 
     expect(events).toEqual([EventType.GameStart]);
-    expect(mapScreen.rooms.map((r) => r.id)).toEqual(ROOM_LAYOUT.map((r) => r.id));
+    expect(mapScreen.grid).not.toBeNull();
+    expect(mapScreen.rooms).toHaveLength(5);
+    const roomIds = new Set(mapScreen.rooms.map((r) => r.id.toLowerCase()));
+    expect(roomIds).toEqual(new Set(["room_a", "room_b", "room_c", "room_x", "vault"]));
     expect(mapScreen.solved).toEqual([]);
+
     const startHud = { timeRemainingMs: DEFAULT_TIME_LIMIT_MS, timeLimitMs: DEFAULT_TIME_LIMIT_MS, money: 0 };
     expect(mapScreen.hud).toEqual(startHud);
     expect(roomScreen.hud).toEqual(startHud);
     expect(shown).toEqual(["map"]);
   });
 
-  it("uses #30's layout, with room_X as the Bonus Room", () => {
+  it("uses the bank layout with room_x as the Bonus Room", () => {
     game.start();
 
-    expect(mapScreen.room("room_X").kind).toBe("bonus");
+    expect(mapScreen.room("room_x").kind).toBe("bonus");
     expect(mapScreen.room("room_c").prerequisites).toEqual(["room_a", "room_b"]);
     expect(mapScreen.room(VAULT_ID).prerequisites).toEqual(["room_c"]);
   });
@@ -204,7 +226,7 @@ describe("Game", () => {
     mapScreen.click("room_a");
 
     expect(roomScreen.question).toBe(question);
-    expect(roomScreen.setQuestionCalls).toBe(2); // a fresh puzzle each entry
+    expect(roomScreen.setQuestionCalls).toBe(2);
     expect(mapScreen.room("room_a").question).toBe(question);
   });
 
@@ -287,9 +309,9 @@ describe("Game", () => {
     expect(count(EventType.Correct)).toBe(2);
   });
 
-  it("a correct last Step in room_X earns bonus money and weight", () => {
+  it("a correct last Step in room_x earns bonus money and weight", () => {
     game.start();
-    enterAndSolve("room_X");
+    enterAndSolve("room_x");
     expect(mapScreen.hud?.money).toBe(ROOM_MONEY.bonus);
 
     enterAndSolve("room_a");
@@ -346,7 +368,6 @@ describe("Game", () => {
     game.start();
     mapScreen.click("room_a");
     const question = mapScreen.room("room_a").question;
-    // Leave less time than one penalty.
     vi.advanceTimersByTime(DEFAULT_TIME_LIMIT_MS - 1000);
     expect(count(EventType.GameOver)).toBe(0);
 
@@ -366,7 +387,7 @@ describe("Game", () => {
     enterAndSolve("room_b");
     enterAndSolve("room_c");
     mapScreen.click(VAULT_ID);
-    vi.setSystemTime(Date.now() + DEFAULT_TIME_LIMIT_MS); // no tick has run yet
+    vi.setSystemTime(Date.now() + DEFAULT_TIME_LIMIT_MS);
 
     roomScreen.submit(lastStep(mapScreen.room(VAULT_ID).question));
 
