@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { getQuestion } from './QuestionGenerator';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { DIFFICULTY_WEIGHTS, getQuestion, getQuestionOfDifficulty, pickDifficulty } from './QuestionGenerator';
 import { Question } from './Question';
 import { Difficulty } from '../score';
 
@@ -93,8 +93,65 @@ function coefficient(side: Side): { numerator: number; denominator: number } {
 }
 
 function generateQuestions(difficulty: Difficulty, count: number = ITERATIONS): Question[] {
-  return Array.from({ length: count }, () => getQuestion(difficulty));
+  return Array.from({ length: count }, () => getQuestionOfDifficulty(difficulty));
 }
+
+/**
+ * which question difficulty a prompt's format corresponds to
+ */
+function classifyPrompt(prompt: string): Difficulty {
+  if (HARD_PATTERN.test(prompt)) return Difficulty.Hard;
+  if (MEDIUM_PATTERN.test(prompt)) return Difficulty.Medium;
+  if (EASY_FACTOR_PATTERN.test(prompt) || EASY_ADDITION_PATTERN.test(prompt)) return Difficulty.Easy;
+
+  throw new Error(`prompt matches no difficulty's format: "${prompt}"`);
+}
+
+describe('DIFFICULTY_WEIGHTS', () => {
+  it.each(DIFFICULTIES)('has non-negative weights that add up to 1 (%s)', (_name, difficulty) => {
+    const weights = DIFFICULTY_WEIGHTS[difficulty];
+
+    for (const weight of weights) {
+      expect(weight).toBeGreaterThanOrEqual(0);
+    }
+    expect(weights[0] + weights[1] + weights[2]).toBeCloseTo(1);
+  });
+});
+
+describe('pickDifficulty', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function pickWithRoll(weights: readonly [number, number, number], roll: number): Difficulty {
+    vi.spyOn(Math, 'random').mockReturnValue(roll);
+    return pickDifficulty(weights);
+  }
+
+  it('picks Easy, Medium or Hard depending on which weight band the roll lands in', () => {
+    const weights = [0.2, 0.6, 0.2] as const;
+
+    expect(pickWithRoll(weights, 0)).toBe(Difficulty.Easy);
+    expect(pickWithRoll(weights, 0.1)).toBe(Difficulty.Easy);
+    expect(pickWithRoll(weights, 0.5)).toBe(Difficulty.Medium);
+    expect(pickWithRoll(weights, 0.9)).toBe(Difficulty.Hard);
+    expect(pickWithRoll(weights, 0.999)).toBe(Difficulty.Hard);
+  });
+
+  it('never picks a difficulty with a weight of 0', () => {
+    expect(pickWithRoll([1, 0, 0], 0.999)).toBe(Difficulty.Easy);
+    expect(pickWithRoll([0, 1, 0], 0.999)).toBe(Difficulty.Medium);
+    expect(pickWithRoll([0, 0, 1], 0.001)).toBe(Difficulty.Hard);
+  });
+
+  it.each(DIFFICULTIES)('picks each difficulty for the middle of its band in DIFFICULTY_WEIGHTS (%s)', (_name, difficulty) => {
+    const [easy, medium, hard] = DIFFICULTY_WEIGHTS[difficulty];
+
+    expect(pickWithRoll(DIFFICULTY_WEIGHTS[difficulty], easy / 2)).toBe(Difficulty.Easy);
+    expect(pickWithRoll(DIFFICULTY_WEIGHTS[difficulty], easy + medium / 2)).toBe(Difficulty.Medium);
+    expect(pickWithRoll(DIFFICULTY_WEIGHTS[difficulty], easy + medium + hard / 2)).toBe(Difficulty.Hard);
+  });
+});
 
 describe('getQuestion', () => {
   it('throws a RangeError for an unknown difficulty', () => {
@@ -102,6 +159,25 @@ describe('getQuestion', () => {
     expect(() => getQuestion(-1 as Difficulty)).toThrow(RangeError);
   });
 
+  it.each(DIFFICULTIES)('returns questions that solve correctly (%s)', (_name, difficulty) => {
+    for (let i = 0; i < ITERATIONS; i++) {
+      const question = getQuestion(difficulty);
+      const { left, right } = parseEquation(question.prompt);
+      const x = Number(question.answer);
+
+      expect(evaluateSide(left, x), question.prompt).toBe(evaluateSide(right, x));
+    }
+  });
+
+  // every weight is at least 0.05, so missing one in 1000 tries has a chance of about 0.95^1000 ≈ 5e-23
+  it.each(DIFFICULTIES)('mixes easy, medium and hard questions (%s)', (_name, difficulty) => {
+    const generated = new Set(Array.from({ length: ITERATIONS }, () => classifyPrompt(getQuestion(difficulty).prompt)));
+
+    expect(generated).toEqual(new Set([Difficulty.Easy, Difficulty.Medium, Difficulty.Hard]));
+  });
+});
+
+describe('getQuestionOfDifficulty', () => {
   describe.each(DIFFICULTIES)('at every difficulty (%s)', (_name, difficulty) => {
     it('returns a prompt and an answer as strings', () => {
       const question = getQuestion(difficulty);
