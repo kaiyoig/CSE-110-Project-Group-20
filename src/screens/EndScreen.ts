@@ -1,6 +1,6 @@
 import Konva from "konva";
 import TextInput from "../text-input/text-input";
-import { DIFFICULTY_LABEL, formatMoney, formatTime } from "../score";
+import { Difficulty, DIFFICULTY_LABEL, formatMoney, formatTime } from "../score";
 import type { AddEntryResult, LeaderboardEntry } from "../score";
 import type { HeistResult } from "../game/Game";
 import type { EndScreen as EndScreenContract, Unsubscribe } from "./contracts";
@@ -11,14 +11,25 @@ import type { AnswerRecord } from "../validation/AnswerHistory";
 
 // Anchor the columns to the results panel and actions to the design-space bottom.
 // fitLayer scales and centers this shared layout for the stage size.
-const ACTION_Y = DESIGN_HEIGHT - 85;
-const PANEL = { x: 92, y: 205, width: DESIGN_WIDTH - 184, height: ACTION_Y - 230 };
-const COLUMN_Y = PANEL.y + 55;
-const COLUMN_HEIGHT = 440;
-const STATS = { x: PANEL.x + 58, y: COLUMN_Y + 26, width: 485, rowHeight: 46 };
-const BOARD = { x: DESIGN_WIDTH / 2 + 35, y: STATS.y, width: PANEL.width / 2 - 128, rowHeight: 36 };
+const ACTION_Y = DESIGN_HEIGHT - 95; // 805
+const PANEL = { x: 92, y: 195, width: DESIGN_WIDTH - 184, height: ACTION_Y - 225 }; // ends at y: 775 (30px gap above buttons)
+const COLUMN_Y = PANEL.y + 38;       // 233
+const COLUMN_HEIGHT = 432;           // white cards end at y: 665
+
+// Symmetrical column math centered around DESIGN_WIDTH / 2:
+const COL_GAP = 56;
+const COL_INNER_WIDTH = (PANEL.width - 58 * 2 - COL_GAP) / 2; // 542px each
+const STATS = { x: PANEL.x + 58, y: COLUMN_Y + 24, width: COL_INNER_WIDTH, rowHeight: 44 };
+const BOARD = { x: STATS.x + COL_INNER_WIDTH + COL_GAP, y: STATS.y, width: COL_INNER_WIDTH, rowHeight: 35 };
+
 /** The name box's TextInput, centered at (x, y), under the stats column. */
-const NAME_BOX = { x: STATS.x + 150, y: PANEL.y + PANEL.height - 59, width: 300, height: 50 };
+const NAME_BOX = { x: STATS.x + 190, y: PANEL.y + PANEL.height - 46, width: 300, height: 50 }; // y: 729 (top edge at 704)
+
+const DIFFICULTY_HEADER_COLORS: Record<Difficulty, string> = {
+  [Difficulty.Easy]: "#16a34a",   // Deep vibrant green
+  [Difficulty.Medium]: "#d97706", // Rich amber / yellow-gold
+  [Difficulty.Hard]: "#dc2626",   // Crisp red
+};
 
 /**
  * Shown after a Heist ends: the outcome, the results, the leaderboard for
@@ -90,13 +101,14 @@ export class EndScreen implements EndScreenContract {
       fill: COLORS.room, cornerRadius: 20, name: "results-panel",
       listening: false,
     }));
+    const CARD_PAD = 24;
     this.layer.add(new Konva.Rect({
-      x: STATS.x - 23, y: COLUMN_Y, width: STATS.width + 70, height: COLUMN_HEIGHT,
+      x: STATS.x - CARD_PAD, y: COLUMN_Y, width: STATS.width + CARD_PAD * 2, height: COLUMN_HEIGHT,
       fill: COLORS.white, stroke: COLORS.purple, strokeWidth: 3,
       cornerRadius: 16, listening: false,
     }));
     this.layer.add(new Konva.Rect({
-      x: BOARD.x - 35, y: COLUMN_Y, width: BOARD.width + 80, height: COLUMN_HEIGHT,
+      x: BOARD.x - CARD_PAD, y: COLUMN_Y, width: BOARD.width + CARD_PAD * 2, height: COLUMN_HEIGHT,
       fill: COLORS.white, stroke: COLORS.purple, strokeWidth: 3,
       cornerRadius: 16, listening: false,
     }));
@@ -127,15 +139,16 @@ export class EndScreen implements EndScreenContract {
 
     this.boardTitle = createText({
       x: BOARD.x, y: BOARD.y, width: BOARD.width,
-      fontSize: 31,
-      fill: COLORS.purple,
+      fontSize: 32,
+      fontStyle: "bold",
+      fill: DIFFICULTY_HEADER_COLORS[Difficulty.Easy],
     });
     this.boardRows.position({ x: BOARD.x, y: BOARD.y + 56 });
     this.layer.add(this.boardTitle, this.boardRows);
 
     this.nameBox = new Konva.Group({ visible: false, name: "name-box" });
     this.nameBox.add(createText({
-      x: STATS.x, y: NAME_BOX.y - 70, width: STATS.width,
+      x: STATS.x, y: NAME_BOX.y - 56, width: STATS.width,
       text: "Enter your name to save your score",
       fontSize: 24, fill: COLORS.purple,
     }));
@@ -446,6 +459,7 @@ this.reviewStatusBubble = new Konva.Rect({
     this.setStat("incorrect", String(snapshot.incorrectAnswers));
 
     this.boardTitle.text(`Leaderboard: ${DIFFICULTY_LABEL[snapshot.difficulty]}`);
+    this.boardTitle.fill(DIFFICULTY_HEADER_COLORS[snapshot.difficulty]);
     this.renderLeaderboard(leaderboard);
     this.refreshNameBox();
     this.layer.batchDraw();
@@ -585,15 +599,15 @@ this.reviewStatusBubble = new Konva.Rect({
     switch (result.status) {
       case "ranked":
         this.saveMessage.text(`Saved! You're #${result.rank} on the ${difficulty} leaderboard.`);
-        this.saveMessage.fill(COLORS.green);
+        this.saveMessage.fill("#15803d");
         break;
       case "notRanked":
         this.saveMessage.text(`Not on the ${difficulty} leaderboard this time. Try again!`);
-        this.saveMessage.fill(COLORS.gold);
+        this.saveMessage.fill("#b45309");
         break;
       case "saveFailed":
         this.saveMessage.text("Couldn't save your score: browser storage is full or blocked.");
-        this.saveMessage.fill(COLORS.red);
+        this.saveMessage.fill("#b91c1c");
         break;
     }
     this.saveMessage.visible(true);

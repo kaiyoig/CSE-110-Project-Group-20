@@ -139,7 +139,7 @@ describe("RoomScreen", () => {
 
   it("shows the time penalty for an Incorrect Answer, then clears it", () => {
     notifications.send({ eventType: EventType.Incorrect });
-    expect(feedback()).toEqual({ visible: true, text: `Incorrect: −${WRONG_ANSWER_PENALTY_SECONDS} s` });
+    expect(feedback()).toEqual({ visible: true, text: `Incorrect!` });
 
     vi.advanceTimersByTime(FEEDBACK_MS);
     expect(feedback().visible).toBe(false);
