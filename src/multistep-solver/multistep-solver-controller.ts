@@ -114,12 +114,31 @@ class MultistepSolverController {
     const isCorrect = operation === expectedOperation
     this.pendingOperation.accepted = isCorrect
     const pending = this.pendingOperation
+
+    const selectedTerm = pending.kind === 'term'
+      ? (pending.isLeftSide ? this.model.getLeftSide() : 
+      this.model.getRightSide())[pending.index!]
+      : null
+
+    const stepPrompt = pending.kind === 'negativeSign'
+      ? 'Remove the leading negative sign'
+      : selectedTerm && typeof selectedTerm !== 'string'
+        ? `Choose an operation to move ${selectedTerm.positive ? '' : '-'}${selectedTerm.term}`
+        : 'Choose an operation'
+
     const isLastStep = this.wouldFinish(scratch => {
       if (pending.kind === 'negativeSign') scratch.removeNegativeSign(pending.isLeftSide)
       else if (pending.isLeftSide) scratch.moveLeftTerm(pending.index!)
       else scratch.moveRightTerm(pending.index!)
     })
-    this.onAnswerSubmit?.(this.equation, operation, expectedOperation, isLastStep)
+
+    this.onAnswerSubmit?.(
+      this.equation,
+      operation,
+      expectedOperation,
+      isLastStep,
+      stepPrompt
+    )
   }
 
   /** Validates a submitted arithmetic answer. @param answer Submitted answer. */
