@@ -751,6 +751,50 @@ it("resets the review when a new game result arrives", () => {
     expect(visibleTexts(screen.layer)).toContain("Question 1 of 1");
 });
 
+//Test 12: Has pagination when there is more than 4 mistakes
+it("paginates when a question has more than four mistakes", () => {
+  const question = {
+    prompt: "x + 3 = 8",
+    answer: "5"
+  };
+
+  const history: AnswerRecord[] = Array.from(
+    { length: 5 },
+    (_, index) => ({
+      question,
+      playerAnswer: `wrong-${index + 1}`,
+      correctAnswer: "-",
+      isCorrect: false,
+      isLastStep: false,
+      stepNumber: index + 1,
+      stepPrompt: `Operation ${index + 1}`
+    })
+  );
+
+  openReview(history);
+
+  const cards = () =>
+    (find("review-mistakes") as Konva.Group).getChildren();
+
+  // first page shows four mistakes
+  expect(cards()).toHaveLength(4);
+  expect(visibleTexts(screen.layer)).toContain("Page 1 of 2");
+
+  // navigate to second page
+  find("review-page-next").fire("click");
+
+  expect(cards()).toHaveLength(1);
+  expect(visibleTexts(screen.layer)).toContain("Page 2 of 2");
+  expect(visibleTexts(screen.layer)).toContain(
+    "Step 5 — Operation 5"
+  );
+
+  // navigate back to first page
+  find("review-page-previous").fire("click");
+
+  expect(cards()).toHaveLength(4);
+  expect(visibleTexts(screen.layer)).toContain("Page 1 of 2");
+});
 
 });
 
