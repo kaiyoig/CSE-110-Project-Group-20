@@ -638,22 +638,24 @@ this.reviewStatusBubble = new Konva.Rect({
             }));
 
             card.add(createText({
-                x: 16,
-                y: 12,
-                width: 378,
-                text: `Step ${mistake.stepNumber} — ${mistake.stepPrompt ?? "Choose an operation"}`,
-                fontSize: 20,
-                fill: COLORS.purple,
-                wrap: "none",
-                ellipsis: true
-            }));
+              x: 16,
+              y: 8,
+              width: 378,
+              height: 42,
+              text: `Step ${mistake.stepNumber} — ${mistake.stepPrompt ?? "Choose an operation"}`,
+              fontSize: 16,
+              lineHeight: 1.1,
+              fill: COLORS.purple,
+              wrap: "word",
+              ellipsis: true
+          }));
 
             card.add(createText({
                 x: 16,
-                y: 49,
+                y: 56,
                 width: 180,
                 text: `Your attempt: ${mistake.firstIncorrectAnswer}`,
-                fontSize: 18,
+                fontSize: 16,
                 fill: "#B91C1C",
                 wrap: "none",
                 ellipsis: true
@@ -661,10 +663,10 @@ this.reviewStatusBubble = new Konva.Rect({
 
             card.add(createText({
                 x: 212,
-                y: 49,
+                y: 56,
                 width: 180,
                 text: `Expected: ${mistake.correctAnswer}`,
-                fontSize: 18,
+                fontSize: 16,
                 fill: "#15803D",
                 wrap: "none",
                 ellipsis: true
