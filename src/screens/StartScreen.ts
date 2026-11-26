@@ -185,11 +185,7 @@ export class StartScreen implements StartScreenContract {
       label: "PLAY",
       fill: "#7cfc30",
       name: "play-button",
-      onClick: () => {
-        this.mainMenuGroup.hide();
-        this.difficultyGroup.show();
-        this.layer.batchDraw();
-      },
+      onClick: () => this.showDifficultySelection(),
     });
     this.mainMenuGroup.add(playBtn);
 
@@ -661,6 +657,13 @@ export class StartScreen implements StartScreenContract {
 
   onCredits(cb: () => void): Unsubscribe {
     return this.credits.add(cb);
+  }
+
+  /** Shared entry into difficulty selection from Play and the tutorial. */
+  showDifficultySelection(): void {
+    this.mainMenuGroup.hide();
+    this.difficultyGroup.show();
+    this.layer.batchDraw();
   }
 
   show(): void {

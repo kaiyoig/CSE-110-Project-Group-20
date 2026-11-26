@@ -7,7 +7,7 @@ export interface Screen {
   hide(): void;
 }
 
-export type ScreenId = "start" | "map" | "room" | "end" | "credits";
+export type ScreenId = "start" | "map" | "room" | "end" | "credits" | "tutorial";
 
 /**
  * Switches between registered Screens so exactly one is visible at a time.

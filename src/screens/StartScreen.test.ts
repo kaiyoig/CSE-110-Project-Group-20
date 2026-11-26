@@ -18,6 +18,14 @@ function flush(): Promise<void> {
 }
 
 describe("StartScreen", () => {
+  it("can open difficulty selection after returning from the tutorial", () => {
+    const screen = new StartScreen(1440, 900);
+    screen.show();
+    screen.showDifficultySelection();
+    expect(visibleTexts(screen.layer)).toEqual(expect.arrayContaining(["EASY", "MEDIUM", "HARD"]));
+    expect(visibleTexts(screen.layer)).not.toContain("PLAY");
+  });
+
   it("separates the settings heading from the panel", () => {
     const screen = new StartScreen(1440, 900);
     click(screen, "settings-button");
