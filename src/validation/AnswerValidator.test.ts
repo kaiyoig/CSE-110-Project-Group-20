@@ -91,6 +91,49 @@ describe("AnswerValidator", () => {
         expect(types()).toEqual([EventType.RoomSolved, EventType.Correct]);
     });
 
+    it("accepts equivalent arithmetic expressions", () => {
+        const result = validator.validateAnswer(
+            question,
+            step("2 * x", "x * 2", true),
+            "main",
+            "room_a",
+        );
+
+        expect(result).toBe(true);
+        expect(types()).toEqual([EventType.RoomSolved, EventType.Correct]);
+    });
+
+    it.each(["10 + 2", "-4/2", "4/-2"])("rejects an unsimplified multistep answer: %s", playerAnswer => {
+        const result = validator.validateAnswer(
+            question,
+            {
+                ...step(playerAnswer, playerAnswer === "10 + 2" ? "12" : "-2", true),
+                stepPrompt: playerAnswer,
+                isMultistepArithmetic: true,
+            },
+            "main",
+            "room_a",
+        );
+
+        expect(result).toBe(false);
+        expect(types()).toEqual([EventType.Incorrect]);
+    });
+
+    it("does not apply multistep arithmetic validation to other puzzle answers", () => {
+        const result = validator.validateAnswer(
+            question,
+            {
+                ...step("10 + 2", "12", true),
+                stepPrompt: "Wire the equation to its value of x",
+            },
+            "main",
+            "room_a",
+        );
+
+        expect(result).toBe(true);
+        expect(types()).toEqual([EventType.RoomSolved, EventType.Correct]);
+    });
+
     it("records every Answer as an AnswerRecord", () => {
         validator.validateAnswer(question, step("+", "-", false), "main", "room_a");
         validator.validateAnswer(question, step("-", "-", false), "main", "room_a");

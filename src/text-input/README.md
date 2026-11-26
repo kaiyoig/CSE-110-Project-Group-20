@@ -52,45 +52,43 @@ Available controls:
 
 # Keypad Input Usage
 
-`KeypadInput` provides an on-screen keypad for entering answers in multistep math problems.
+`KeypadInput` is the multistep room's answer keypad, styled like the Power Box:
+a "LOCK PINS" row of lights, a display, and the keys.
 
 ## How It Works
 
-- Players enter numbers using the keypad instead of typing.
-- Supports negative numbers and fractions.
-- `C` clears the answer, while `⌫` removes the last character.
-- The **Submit** button sends the answer to the puzzle for validation.
-- The answer display resets after each submitted step.
+- Keys: digits, `x`, `/` (fractions), `−` (toggles the sign), `⌫` (backspace),
+  `C` (clear) and a tall `ENTER`.
+- The **LOCK PINS** row: `setProgress(solved, par)` draws one light per Step of par and lights one per Step solved; Steps beyond par show as "+1", "+2"… without adding lights.
+- The display shows what to work out (`setPrompt("14 + 7 =")`) above the answer
+  typed so far (`setAnswer("21")`, or `setAnswer()` for the `?` placeholder).
+- `flashWrong()` shows "TRY AGAIN" in red for a moment; `showResult("x = 7")`
+  shows the final answer in green.
+- `setEnabled(false)` dims the keys and ignores clicks (between Arithmetic Steps).
+- The keypad is 364 × 480 (`KEYPAD_WIDTH`, `KEYPAD_HEIGHT`), placed from its top-left.
 
 ## Usage
 
-Create a keypad and attach it to a Konva layer:
-
 ```ts
 const keypad = new KeypadInput();
+keypad.position({ x, y });
 layer.add(keypad);
-```
 
-Handle key presses and submissions using:
-
-```ts
 keypad.onKeyPressed = (key) => {
-  // Handle the selected key
+  // "0"–"9", "x", "/", "-", "⌫" or "C"
 };
 
 keypad.onSubmit = () => {
-  // Validate the player's answer
+  // ENTER: check the player's answer
 };
 ```
 
-Available controls:
-
-- `setAnswer(answer)` updates the displayed answer.
-- `setAnswer()` resets the display to "Enter answer".
-- `show()` displays the keypad.
-- `hide()` hides the keypad.
+`BasicMultistepPuzzle` also maps the keyboard to the same keys (digits, `x`,
+`-`, `/`, Backspace, Escape/Delete to clear, Enter to submit) during an
+Arithmetic Step.
 
 ## Related Files
 
-- `keypad-input.ts` — Keypad layout, buttons, and display.
-- `../puzzles/basic-multistep-puzzle.ts` — Handles keypad input, answer submission, and validation.
+- `keypad-input.ts` — Keypad layout, lights, display and keys.
+- `../puzzles/basic-multistep-puzzle.ts` — Turns key presses into answers
+  (`normalizeKeypadAnswer`: `3x` becomes `x * 3`) and submits them.

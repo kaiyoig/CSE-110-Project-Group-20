@@ -4,6 +4,15 @@ import { Difficulty } from "../score";
 const ANSWER_RANGE: number = 20; // answers can range from -RANGE to +RANGE
 const MAX_FACTOR: number = 10; // factors can range from 2 to MAX_FACTOR
 
+// probabilities of easy, medium, hard questions being generated, respectively,
+// at different game difficulties
+// "Hard difficulty" is given as 1 - easy difficulty - medium difficulty
+export const DIFFICULTY_WEIGHTS: Record<Difficulty, readonly [number, number]> = {
+  [Difficulty.Easy]: [0.6, 0.3],
+  [Difficulty.Medium]: [0.2, 0.6],
+  [Difficulty.Hard]: [0.05, 0.2]
+};
+
 /**
  * helper functions for getting random numbers for question generation
  */
@@ -176,13 +185,11 @@ function formatPrompt(parts: QuestionParts, difficulty: Difficulty): string {
       return `${leftTerm} ${formatSignedTerm(addedNumber)} = ${leftTermValue + addedNumber}`;
     case Difficulty.Hard:
       return `${leftTerm} ${formatSignedTerm(addedNumber)} = ${rightTerm} ${formatSignedTerm(rightNumber)}`;
-    default:
-      throw new RangeError(`unknown difficulty: ${difficulty}`);
   }
 }
 
 /**
- * randomly generates and returns a Question
+ * randomly generates and returns a Question of the specified difficulty
  *
  * Easy: 1 step to solve, e.g. x * 3 = 21, x + 4 = 5
  *
@@ -194,8 +201,45 @@ function formatPrompt(parts: QuestionParts, difficulty: Difficulty): string {
  * 
  * @return a Question of the specified difficulty, in the format as specified above
  */
-export function getQuestion(difficulty: Difficulty): Question {
+export function getQuestionOfDifficulty(difficulty: Difficulty): Question {
   const parts: QuestionParts = generateParts();
 
   return { prompt: formatPrompt(parts, difficulty), answer: String(parts.answerValue) };
+}
+
+// randomly picks a difficulty based on the given weights [easy, medium]
+// hard is assumed to be 1 - easy - medium
+export function pickDifficulty(weights: readonly [number, number]): Difficulty {
+  if (weights[0] + weights[1] > 1 || weights[0] < 0 || weights[1] < 0) {
+    throw new RangeError(`difficulty weights must sum to at most 1 and be nonnegative, got [${weights[0]}, ${weights[1]}]`);
+  }
+
+  const mediumThreshold = weights[0];
+  const hardThreshold = mediumThreshold + weights[1]; 
+  const roll: number = Math.random();
+
+  if (roll > hardThreshold) {
+    return Difficulty.Hard;
+  } else if (roll > mediumThreshold) {
+    return Difficulty.Medium;
+  }
+
+  return Difficulty.Easy;
+
+}
+
+/**
+ * randomly generates and returns a Question of a random difficulty
+ *
+ * randomly selects a question difficulty based on the input difficulty (see DIFFICULTY_WEIGHTS)
+ *
+ * @param difficulty: selected difficulty of the game, off of which the probabilities are built
+ *
+ * @return a Question of random difficulty
+ */
+export function getQuestion(difficulty: Difficulty): Question {
+  const weights = DIFFICULTY_WEIGHTS[difficulty];
+  if (!weights) throw new RangeError(`unknown difficulty: ${difficulty}`);
+
+  return getQuestionOfDifficulty(pickDifficulty(weights));
 }

@@ -51,16 +51,16 @@ describe("ScoreModel", () => {
 
   it("main room gives $100 × multiplier, bonus room $300 × multiplier", () => {
     const m = new ScoreModel({ difficulty: Difficulty.Medium });
-    expect(m.recordRoomSolved("main")).toBe(300);
-    expect(m.recordRoomSolved("bonus")).toBe(900);
+    expect(m.recordRoomSolved("main", "main_room")).toBe(300);
+    expect(m.recordRoomSolved("bonus", "bonus_room")).toBe(900);
     expect(m.getMoney()).toBe(1200);
   });
 
   it("bonus rooms count as 3 correct answers", () => {
     const m = new ScoreModel();
-    for (let i = 0; i < 12; i++) m.recordRoomSolved("main");
-    m.recordRoomSolved("bonus");
-    m.recordRoomSolved("bonus");
+    for (let i = 0; i < 12; i++) m.recordRoomSolved("main", "main_room");
+    m.recordRoomSolved("bonus", "bonus_room");
+    m.recordRoomSolved("bonus", "bonus_room");
     expect(m.getRoomsSolved()).toBe(14);
     expect(m.getWeightedCorrect()).toBe(12 + 3 + 3);
   });
@@ -82,8 +82,8 @@ describe("ScoreModel", () => {
   it("rejects solving a room after time is up", () => {
     const m = new ScoreModel({ timeLimitMs: 5000 });
     m.removeTime(5000);
-    expect(m.recordRoomSolved("main")).toBe(0);
-    expect(m.recordRoomSolved("bonus")).toBe(0);
+    expect(m.recordRoomSolved("main", "main_room")).toBe(0);
+    expect(m.recordRoomSolved("bonus", "bonus_room")).toBe(0);
     expect(m.getRoomsSolved()).toBe(0);
     expect(m.getMoney()).toBe(0);
   });
@@ -98,8 +98,8 @@ describe("ScoreModel", () => {
   describe("calculateScore", () => {
     it("= multiplier × weighted correct × seconds left (with a wrong answer)", () => {
       const m = new ScoreModel({ difficulty: Difficulty.Hard });
-      for (let i = 0; i < 12; i++) m.recordRoomSolved("main");
-      m.recordRoomSolved("bonus");
+      for (let i = 0; i < 12; i++) m.recordRoomSolved("main", "main_room");
+      m.recordRoomSolved("bonus", "bonus_room");
       m.recordIncorrect(0);
       m.removeTime(HOUR - 1000 * 1000); // 1000 s left
       expect(m.calculateScore()).toBe(6 * 15 * 1000);
@@ -107,7 +107,7 @@ describe("ScoreModel", () => {
 
     it("gives ×1.2 for a flawless run", () => {
       const m = new ScoreModel();
-      for (let i = 0; i < 12; i++) m.recordRoomSolved("main");
+      for (let i = 0; i < 12; i++) m.recordRoomSolved("main", "main_room");
       m.removeTime(HOUR - 1000 * 1000);
       expect(m.isFlawless()).toBe(true);
       expect(m.calculateScore()).toBe(Math.round(1 * 12 * 1000 * 1.2));
@@ -115,7 +115,7 @@ describe("ScoreModel", () => {
 
     it("loses the flawless bonus after one wrong answer", () => {
       const m = new ScoreModel();
-      m.recordRoomSolved("main");
+      m.recordRoomSolved("main", "main_room");
       m.recordIncorrect(60_000);
       expect(m.isFlawless()).toBe(false);
       expect(m.getIncorrectAnswers()).toBe(1);
@@ -124,7 +124,7 @@ describe("ScoreModel", () => {
 
     it("is not flawless when caught, even with no wrong answers", () => {
       const m = new ScoreModel({ timeLimitMs: 5000 });
-      m.recordRoomSolved("main");
+      m.recordRoomSolved("main", "main_room");
       m.removeTime(5000);
       expect(m.getIncorrectAnswers()).toBe(0);
       expect(m.isFlawless()).toBe(false);
@@ -137,14 +137,14 @@ describe("ScoreModel", () => {
 
     it("is 0 when caught", () => {
       const m = new ScoreModel({ difficulty: Difficulty.Hard });
-      for (let i = 0; i < 11; i++) m.recordRoomSolved("main");
+      for (let i = 0; i < 11; i++) m.recordRoomSolved("main", "main_room");
       m.removeTime(HOUR);
       expect(m.calculateScore()).toBe(0);
     });
 
     it("ignores partial seconds", () => {
       const m = new ScoreModel({ timeLimitMs: 10_500 });
-      m.recordRoomSolved("main");
+      m.recordRoomSolved("main", "main_room");
       m.recordIncorrect(0);
       expect(m.calculateScore()).toBe(10);
     });
@@ -152,7 +152,7 @@ describe("ScoreModel", () => {
 
   it("snapshot includes everything the end screen needs", () => {
     const m = new ScoreModel({ difficulty: Difficulty.Medium });
-    m.recordRoomSolved("bonus");
+    m.recordRoomSolved("bonus", "bonus_room");
     const s = m.snapshot();
     expect(s.money).toBe(900);
     expect(s.weightedCorrect).toBe(3);

@@ -16,6 +16,8 @@ export class FakePuzzle {
   /** Which puzzle this stands in for (a RoomPuzzle type). */
   type = "multistep";
   destroyed = false;
+  /** Set by `holdAnswer`: what `sendPendingAnswer` sends. */
+  pending: StepAnswer | null = null;
   interactionEnabled = true;
   onAnswer?: (answer: StepAnswer) => void;
   onPuzzleFinished?: (solved: boolean) => void;
@@ -34,6 +36,17 @@ export class FakePuzzle {
 
   setInteractionEnabled(enabled: boolean): void {
     this.interactionEnabled = enabled;
+  }
+
+  /** Simulates a puzzle holding its last Answer back (like the multistep room). */
+  holdAnswer(answer: StepAnswer): void {
+    this.pending = answer;
+  }
+
+  sendPendingAnswer(): void {
+    const answer = this.pending;
+    this.pending = null;
+    if (answer) this.onAnswer?.(answer);
   }
 
   /** Simulates the player answering a Step. */

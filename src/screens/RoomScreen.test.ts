@@ -12,6 +12,7 @@ import { RoomScreen, FEEDBACK_MS } from "./RoomScreen";
 import { NotificationManager } from "../notification-manager/NotificationManager";
 import { EventType } from "../notification-manager/GameEvent";
 import { formatMoney, WRONG_ANSWER_PENALTY_SECONDS } from "../score";
+import { CONSOLE } from "../multistep-solver/multistep-console";
 import type { StepAnswer } from "../questions/Question";
 import { visibleTexts } from "./testing/fakeKonva";
 import { created } from "./testing/fakePuzzle";
@@ -129,6 +130,18 @@ describe("RoomScreen", () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 
+  it("Exit sends an Answer the puzzle is still holding before leaving, so a solve is not lost", () => {
+    const events: string[] = [];
+    screen.onAnswer((a) => events.push(`answer ${a.playerAnswer}`));
+    screen.onExit(() => events.push("exit"));
+    screen.setRoom(roomA);
+    created[0].holdAnswer({ playerAnswer: "2", correctAnswer: "2", isLastStep: true });
+
+    screen.layer.findOne(".exit")!.fire("click");
+
+    expect(events).toEqual(["answer 2", "exit"]);
+  });
+
   it("shows Correct! in green for about a second", () => {
     notifications.send({ eventType: EventType.Correct });
     expect(feedback()).toEqual({ visible: true, text: "Correct!" });
@@ -164,25 +177,88 @@ describe("RoomScreen", () => {
     expect(screen.layer.getStage()).toBeNull();
   });
 
-  //random value below 0.5 selects keypad
-  it("selects keypad input when random value is below 0.5", () => {
-    const random = vi.spyOn(Math, "random").mockReturnValue(0.25);
-
+  it("builds the multistep puzzle on the full-size console, with feedback under it", () => {
     screen.setRoom(roomA);
 
-    expect(created[0].options.inputType).toBe("keypad");
-
-    random.mockRestore();
-   });
-
-   //random value above 0.5 selects typed input
-  it("selects typed input when random value is above 0.5", () => {
-    const random = vi.spyOn(Math, "random").mockReturnValue(0.75);
-
-    screen.setRoom(roomA);
-
-    expect(created[0].options.inputType).toBe("typed");
-
-    random.mockRestore();
+    expect(created[0].options).toMatchObject({ x: 720 });
+    const consoleBottom = (created[0].options.y as number) + CONSOLE.height / 2;
+    expect(screen.layer.findOne<Konva.Text>(".feedback")!.y()).toBeGreaterThan(consoleBottom);
   });
+
+
+  it("positions feedback below the panel for Laser Matching in any room", () => {
+    const questions = [
+      { prompt: "y = x", answer: "y = 1 * x + 0" }
+    ];
+
+    //use Room A to verify it doesn't depend on Room C
+    const laserRoom = new Room({
+      id: "room_a_laser",
+      name: "Room A",
+      question,
+      puzzle: { type: "laser", questions },
+    });
+
+    screen.setRoom(laserRoom);
+
+    const feedbackNode = screen.layer.findOne<Konva.Text>(".feedback")!;
+
+    notifications.send({ eventType: EventType.Incorrect });
+
+    expect(feedbackNode.text()).toBe("Incorrect!");
+    expect(feedbackNode.y()).toBe(799);
+
+    notifications.send({ eventType: EventType.Correct });
+
+    expect(feedbackNode.text()).toBe("Correct!");
+    expect(feedbackNode.y()).toBe(799);
+  });
+
+
+  it("restores the original feedback position for other puzzle types", () => {
+    const questions = [
+      { prompt: "y = x", answer: "y = 1 * x + 0" }
+    ];
+
+    const laserRoom = new Room({
+      id: "laser_room",
+      name: "Room A",
+      question,
+      puzzle: { type: "laser", questions },
+    });
+
+    const powerBoxRoom = new Room({
+      id: "power_room",
+      name: "Room B",
+      question,
+      puzzle: {
+        type: "powerBox",
+        pairs: [{ question }],
+      },
+    });
+
+    const feedbackNode = screen.layer.findOne<Konva.Text>(".feedback")!;
+
+    //laser Mmtching uses the lower position
+    screen.setRoom(laserRoom);
+    notifications.send({ eventType: EventType.Correct });
+    expect(feedbackNode.y()).toBe(799);
+
+    //power box returns to the original position
+    screen.setRoom(powerBoxRoom);
+    notifications.send({ eventType: EventType.Correct });
+    expect(feedbackNode.y()).toBe(734);
+
+    //multistep returns to the original position
+    screen.setRoom(roomA);
+    notifications.send({ eventType: EventType.Incorrect });
+    expect(feedbackNode.y()).toBe(734);
+
+    // switching back to laser matching restores its position
+    screen.setRoom(laserRoom);
+    notifications.send({ eventType: EventType.Correct });
+    expect(feedbackNode.y()).toBe(799);
+  });
+
+
 });

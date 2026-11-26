@@ -22,8 +22,8 @@ const STATS = { x: PANEL.x + 58, y: COLUMN_Y + 24, width: COL_INNER_WIDTH, rowHe
 const BOARD = { x: STATS.x + COL_INNER_WIDTH + COL_GAP, y: STATS.y, width: COL_INNER_WIDTH, rowHeight: 35 };
 
 /** The name box's TextInput, centered at (x, y), under the stats column. */
-const NAME_BOX = { x: STATS.x + 190, y: PANEL.y + PANEL.height - 46, width: 300, height: 50 }; // y: 729 (top edge at 704)
-const NAME_PROMPT = "Enter your name to save your score";
+const NAME_BOX = { x: STATS.x + 150, y: PANEL.y + PANEL.height - 46, width: 300, height: 50 }; // y: 729 (top edge at 704)
+const NAME_PROMPT = "Enter your name to save your score:";
 /** Behind the current Player's rows. */
 const MINE_FILL = "rgba(255, 212, 71, 0.45)";
 
@@ -140,7 +140,7 @@ private readonly reviewPageText = createText({
     }));
 
     this.outcome = createText({
-      y: 55, width: DESIGN_WIDTH,
+      y: 48, width: DESIGN_WIDTH,
       align: "center",
       fontSize: 80,
       fontFamily: "Gasoek One", fontStyle: "normal",
@@ -148,15 +148,20 @@ private readonly reviewPageText = createText({
     });
     this.layer.add(this.outcome);
 
-    this.flawless = new Konva.Group({ x: (DESIGN_WIDTH - 220) / 2, y: 160, visible: false, name: "flawless" });
+    this.flawless = new Konva.Group({ x: (DESIGN_WIDTH - 220) / 2, y: 144, visible: false, name: "flawless" });
     this.flawless.add(new Konva.Rect({
-      width: 220, height: 43, cornerRadius: 24,
-      stroke: COLORS.gold, strokeWidth: 3,
+      width: 220, height: 40, 
+      cornerRadius: 20,
+      fill: COLORS.background,
+      stroke: COLORS.gold, 
+      strokeWidth: 3,
     }));
     this.flawless.add(createText({
-      width: 220, height: 43,
+      width: 220, 
+      height: 40,
       text: "Flawless",
-      align: "center", verticalAlign: "middle",
+      align: "center", 
+      verticalAlign: "middle",
       fill: COLORS.gold,
     }));
     this.layer.add(this.flawless);

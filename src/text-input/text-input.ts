@@ -62,6 +62,7 @@ class TextInput extends Konva.Group {
     this.input.type = 'text'
     this.input.className = this.ghostTextClass
     this.input.placeholder = options.ghostText ?? ''
+    this.input.title = this.input.placeholder
     this.input.autocomplete = 'off'
     if (options.maxLength !== undefined) this.input.maxLength = options.maxLength
     // Positioning is calculated from getBoundingClientRect(), which uses
@@ -123,6 +124,12 @@ class TextInput extends Konva.Group {
   public ghostTextColor(color: string): void {
     const style = document.getElementById(this.ghostTextClass)
     if (style) style.textContent = `.${this.ghostTextClass}::placeholder { color: ${color}; }`
+  }
+
+  /** Changes the input's placeholder guidance. */
+  public ghostText(text: string): void {
+    this.input.placeholder = text
+    this.input.title = text
   }
 
   /** Changes the Konva background color. @param color New fill color. */

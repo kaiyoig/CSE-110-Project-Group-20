@@ -6,6 +6,7 @@ import type Konva from "konva";
 import { StartScreen } from "./StartScreen";
 import { Difficulty, Leaderboard, MemoryLeaderboardStore, formatTime } from "../score";
 import { visibleTexts } from "./testing/fakeKonva";
+import { COLORS } from "./theme";
 
 function click(screen: StartScreen, name: string): void {
   screen.layer.findOne(`.${name}`)!.fire("click");
@@ -17,6 +18,71 @@ function flush(): Promise<void> {
 }
 
 describe("StartScreen", () => {
+  it("can open difficulty selection after returning from the tutorial", () => {
+    const screen = new StartScreen(1440, 900);
+    screen.show();
+    screen.showDifficultySelection();
+    expect(visibleTexts(screen.layer)).toEqual(expect.arrayContaining(["EASY", "MEDIUM", "HARD"]));
+    expect(visibleTexts(screen.layer)).not.toContain("PLAY");
+  });
+
+  it("separates the settings heading from the panel", () => {
+    const screen = new StartScreen(1440, 900);
+    click(screen, "settings-button");
+    const heading = screen.layer.findOne<Konva.Text>(".settings-heading")!;
+    const panel = screen.layer.findOne<Konva.Rect>(".settings-panel")!;
+    expect(panel.y() - (heading.y() + heading.fontSize())).toBeGreaterThanOrEqual(24);
+  });
+
+  it("uses red for muted and green for unmuted, including after reopening settings", () => {
+    const screen = new StartScreen(1440, 900);
+    click(screen, "settings-button");
+    const face = screen.layer.findOne<Konva.Rect>(".audio-mute-face")!;
+    const label = screen.layer.findOne<Konva.Text>(".audio-mute-label")!;
+    expect(face.fill()).toBe(COLORS.green);
+    expect(label.text()).toBe("Mute all: OFF");
+    click(screen, "audio-mute-toggle");
+    expect(face.fill()).toBe(COLORS.red);
+    expect(label.text()).toBe("Mute all: ON");
+    click(screen, "settings-back");
+    screen.show();
+    click(screen, "settings-button");
+    expect(face.fill()).toBe(COLORS.red);
+    expect(label.text()).toBe("Mute all: ON");
+    click(screen, "audio-mute-toggle");
+    expect(face.fill()).toBe(COLORS.green);
+    expect(label.text()).toBe("Mute all: OFF");
+  });
+
+  it("adjusts music and SFX independently and keeps them when reopening settings", () => {
+    const screen = new StartScreen(1440, 900);
+    const music = vi.fn();
+    const sfx = vi.fn();
+    const mute = vi.fn();
+    screen.onMusicVolumeChange(music);
+    screen.onSfxVolumeChange(sfx);
+    screen.onAudioMuteChange(mute);
+    click(screen, "settings-button");
+    const musicThumb = screen.layer.findOne<Konva.Circle>(".music-volume-thumb")!;
+    const sfxThumb = screen.layer.findOne<Konva.Circle>(".sfx-volume-thumb")!;
+    musicThumb.x(340);
+    musicThumb.fire("dragmove");
+    expect(music).toHaveBeenLastCalledWith(0.5);
+    expect(sfx).not.toHaveBeenCalled();
+    sfxThumb.x(170);
+    sfxThumb.fire("dragmove");
+    expect(sfx).toHaveBeenLastCalledWith(0.25);
+    click(screen, "audio-mute-toggle");
+    expect(mute).toHaveBeenLastCalledWith(true);
+    click(screen, "settings-back");
+    screen.show();
+    click(screen, "settings-button");
+    expect(screen.layer.findOne<Konva.Text>(".music-volume-value")!.text()).toBe("50%");
+    expect(screen.layer.findOne<Konva.Text>(".sfx-volume-value")!.text()).toBe("25%");
+    click(screen, "audio-mute-toggle");
+    expect(mute).toHaveBeenLastCalledWith(false);
+  });
+
   it("shows the primary menu buttons initially and reveals difficulties when PLAY is clicked", () => {
     const screen = new StartScreen(1440, 900);
 

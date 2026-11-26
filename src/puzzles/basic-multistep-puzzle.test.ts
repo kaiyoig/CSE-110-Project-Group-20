@@ -1,196 +1,297 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import type Konva from 'konva'
 
-// The real model and controller run; the Konva-drawn parts are fakes that
-// record what the puzzle does to them and expose the callbacks it assigns.
-const fakes = vi.hoisted(() => ({
-  view: null as any,
-  actionMenu: null as any,
-  input: null as any,
-}))
+vi.mock('konva', () => import('../screens/testing/fakeKonva'))
 
-vi.mock('konva', () => {
-  class FakeText {
-    attrs: Record<string, any>
-    destroyed = false
-    constructor(config: Record<string, any> = {}) {
-      this.attrs = { ...config }
-    }
-    text(value?: string) {
-      if (value !== undefined) this.attrs.text = value
-      return this.attrs.text ?? ''
-    }
-    // Like Konva.Text with no fixed width: sized from its text.
-    width() { return this.text().length * 10 }
-    height() { return 20 }
-    x(value?: number) {
-      if (value !== undefined) this.attrs.x = value
-      return this.attrs.x ?? 0
-    }
-    y(value?: number) {
-      if (value !== undefined) this.attrs.y = value
-      return this.attrs.y ?? 0
-    }
-    position(value: { x: number, y: number }) {
-      this.attrs.x = value.x
-      this.attrs.y = value.y
-    }
-    visible(value?: boolean) {
-      if (value !== undefined) this.attrs.visible = value
-      return this.attrs.visible ?? true
-    }
-    destroy() { this.destroyed = true }
+import BasicMultistepPuzzle, { FINAL_ANSWER_MS } from './basic-multistep-puzzle'
+import { FakeLayer, FakeStage, visibleTexts, type FakeNode } from '../screens/testing/fakeKonva'
+import type { StepAnswer } from '../questions/Question'
+
+/** x * 3 - 7 = 14: move -7 (add), 14 + 7, move 3 (divide), 21 / 3. */
+const EQUATION = 'x * 3 - 7 = 14'
+
+interface Internals {
+  controller: {
+    getState(): string
+    operation(index: number, isLeftSide: boolean): void
   }
-  return { default: { Text: FakeText } }
-})
-
-vi.mock('../multistep-solver/multistep-solver-view', () => ({
-  default: class {
-    onTargetDropped?: (index: number, left: boolean) => void
-    onNegativeSignDropped?: (left: boolean) => void
-    constructor() { fakes.view = this }
-    setPosition() {}
-    update() {}
-    showDropzone() {}
-    hideDropzone() {}
-    clearDropzone() {}
-    destroy() {}
-  },
-}))
-
-vi.mock('../multistep-solver/action-menu', () => ({
-  default: class {
-    onAdditionClicked?: () => void
-    onSubtractionClicked?: () => void
-    onMultiplicationClicked?: () => void
-    onDivisionClicked?: () => void
-    shown = false
-    constructor() { fakes.actionMenu = this }
-    show() { this.shown = true }
-    hide() { this.shown = false }
-    destroy() {}
-  },
-}))
-
-vi.mock('../text-input/text-input', () => ({
-  default: class {
-    onTextEntered?: (text: string) => void
-    onTextFocused?: () => void
-    shown = false
-    options: Record<string, any>
-    constructor(options: Record<string, any>) {
-      this.options = options
-      fakes.input = this
-    }
-    show() { this.shown = true }
-    hide() { this.shown = false }
-    outlineColor() {}
-    clear() {}
-    destroy() {}
-  },
-}))
-
-vi.mock('../text-input/keypad-input', () => ({
-  default: class {
-    show() {}
-    hide() {}
-    setAnswer() {}
-    position() {}
-    moveToTop() {}
-    destroy() {}
-  },
-}))
-
-import BasicMultistepPuzzle from './basic-multistep-puzzle'
-
-const makeLayer = () => {
-  const children: any[] = []
-  return {
-    children,
-    getStage: () => ({}),
-    add: (...nodes: any[]) => { children.push(...nodes) },
-  } as any
+  handleKeyDown(event: { key: string, preventDefault(): void }): void
 }
 
-const OPTIONS = { x: 500, y: 300, width: 700, height: 400, spacing: 24, blockSize: 40 }
-
-describe('BasicMultistepPuzzle arithmetic label', () => {
-  let layer: any
-  let puzzle: BasicMultistepPuzzle
-  const label = () => layer.children.find((node: any) => typeof node.text === 'function')
-
-  // x + 3 = 8 + 4: moving the 3 starts two back-to-back Arithmetic Steps,
-  // 8 + 4 and then 12 - 3.
-  const startArithmetic = () => {
-    fakes.view.onTargetDropped(1, true) // + 3
-    fakes.actionMenu.onSubtractionClicked()
+function setup(equation = EQUATION) {
+  const stage = new FakeStage()
+  const layer = new FakeLayer()
+  stage.add(layer)
+  const puzzle = new BasicMultistepPuzzle(equation, {
+    layer: layer as unknown as Konva.Layer,
+    x: 720, y: 500,
+  })
+  const answers: StepAnswer[] = []
+  puzzle.onAnswer = answer => answers.push(answer)
+  const internals = puzzle as unknown as Internals
+  const find = (name: string): FakeNode => {
+    const node = layer.findOne(`.${name}`)
+    if (!node) throw new Error(`No .${name} on the layer`)
+    return node
   }
+  const press = (...keys: string[]) => keys.forEach(key => find(`key-${key}`).fire('click'))
+  const lit = () => layer.find(node => node.name() === 'light-on').length
+  const lights = () => layer.find(node => /^light-(on|off)$/.test(String(node.name()))).length
+  return { layer, puzzle, answers, internals, find, press, lit, lights }
+}
 
-  beforeEach(() => {
-    layer = makeLayer()
-    puzzle = new BasicMultistepPuzzle('x + 3 = 8 + 4', { layer, ...OPTIONS })
+/** Drops -7 (the last term on the left) and adds 7 to both sides. */
+function moveMinusSeven(t: ReturnType<typeof setup>) {
+  t.internals.controller.operation(3, true)
+  t.find('operation-+').fire('click')
+}
+
+/** Solves the whole equation with correct Answers. */
+function solve(t: ReturnType<typeof setup>) {
+  moveMinusSeven(t)
+  t.press('2', '1', 'Enter')
+  t.internals.controller.operation(2, true)
+  t.find('operation-/').fire('click')
+  t.press('7', 'Enter')
+}
+
+describe('BasicMultistepPuzzle', () => {
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it('starts hidden', () => {
-    expect(label().visible()).toBe(false)
+  it('starts on Step 1 with a light per Step of par (4), all dark, asking for a term', () => {
+    const t = setup()
+
+    expect(t.lights()).toBe(4)
+    expect(t.lit()).toBe(0)
+    expect(t.find('step-tag').text()).toBe('STEP 1 · PAR 4')
+    expect(t.find('step-message').text()).toContain('Drag a term')
+    expect(visibleTexts(t.layer)).toEqual(expect.arrayContaining(['ADD', 'SUBTRACT', 'MULTIPLY', 'DIVIDE']))
   })
 
-  it('shows the expression with the input when an Arithmetic Step begins', () => {
-    startArithmetic()
-
-    expect(fakes.input.shown).toBe(true)
-    expect(label().visible()).toBe(true)
-    expect(label().text()).toBe('8 + 4 =')
+  it('shows multiplication as · in the equation', () => {
+    const t = setup()
+    expect(visibleTexts(t.layer)).toContain('·')
   })
 
-  it('sits to the left of the input, vertically centred on it', () => {
-    startArithmetic()
+  it('only takes an operation after a term is dropped', () => {
+    const t = setup()
 
-    const inputWidth = 100
-    const inputY = OPTIONS.y + 100 / 2 + OPTIONS.spacing + 50 / 2
-    const rightEdge = label().x() + label().width()
-    expect(rightEdge).toBeLessThan(OPTIONS.x - inputWidth / 2)
-    expect(label().y() + label().height() / 2).toBe(inputY)
+    t.find('operation-+').fire('click')
+    expect(t.answers).toHaveLength(0)
+
+    moveMinusSeven(t)
+    expect(t.answers).toEqual([{ playerAnswer: '+', correctAnswer: '+', isLastStep: false, stepPrompt: undefined }])
   })
 
-  it('updates for an Arithmetic Step that directly follows another', () => {
-    startArithmetic()
-    fakes.input.onTextEntered('12')
+  it('a wrong operation is reported, lights nothing and keeps waiting for a pick', () => {
+    const t = setup()
+    t.internals.controller.operation(3, true)
 
-    expect(label().visible()).toBe(true)
-    expect(label().text()).toBe('12 - 3 =')
+    t.find('operation--').fire('click')
+
+    expect(t.answers[0]).toMatchObject({ playerAnswer: '-', correctAnswer: '+' })
+    expect(t.lit()).toBe(0)
+    expect(t.internals.controller.getState()).toBe('Operation')
   })
 
-  it('keeps the expression after an incorrect Answer', () => {
-    startArithmetic()
-    fakes.input.onTextEntered('11')
+  it('a correct move lights a pin and asks for the arithmetic on the keypad', () => {
+    const t = setup()
 
-    expect(label().text()).toBe('8 + 4 =')
+    moveMinusSeven(t)
+
+    expect(t.lit()).toBe(1)
+    expect(t.find('keypad-prompt').text()).toBe('14 + 7 =')
+    expect(t.find('step-tag').text()).toBe('STEP 2 · PAR 4')
   })
 
-  it('hides with the input when the puzzle finishes', () => {
-    startArithmetic()
-    fakes.input.onTextEntered('12')
-    fakes.input.onTextEntered('9')
+  it('takes an answer typed on the keypad', () => {
+    const t = setup()
+    moveMinusSeven(t)
 
-    expect(fakes.input.shown).toBe(false)
-    expect(label().visible()).toBe(false)
+    t.press('2', '1')
+    expect(t.find('keypad-answer').text()).toBe('21')
+    t.press('Enter')
+
+    expect(t.answers[1]).toMatchObject({ playerAnswer: '21', correctAnswer: '21', stepPrompt: '14 + 7' })
+    expect(t.lit()).toBe(2)
   })
 
-  it('stays hidden during an Operation Step', () => {
-    fakes.view.onTargetDropped(1, true)
+  it('a wrong answer flashes TRY AGAIN and lights nothing', () => {
+    const t = setup()
+    moveMinusSeven(t)
 
-    expect(fakes.actionMenu.shown).toBe(true)
-    expect(label().visible()).toBe(false)
+    t.press('2', '0', 'Enter')
+
+    expect(t.answers[1]).toMatchObject({ playerAnswer: '20', correctAnswer: '21' })
+    expect(t.find('keypad-answer').text()).toBe('TRY AGAIN')
+    expect(t.lit()).toBe(1)
   })
 
-  it('uses ? as the placeholder', () => {
-    expect(fakes.input.options.ghostText).toBe('?')
+  it('takes the same answer from the keyboard, Enter included', () => {
+    const t = setup()
+    moveMinusSeven(t)
+    const preventDefault = vi.fn()
+
+    for (const key of ['2', '1', 'Enter']) t.internals.handleKeyDown({ key, preventDefault })
+
+    expect(t.answers[1]).toMatchObject({ playerAnswer: '21', correctAnswer: '21' })
+    expect(preventDefault).toHaveBeenCalledTimes(3)
   })
 
-  it('destroys the label with the puzzle', () => {
-    const node = label()
-    puzzle.destroy()
+  it('ignores the keyboard while a hint covers the puzzle', () => {
+    const t = setup()
+    moveMinusSeven(t)
 
-    expect(node.destroyed).toBe(true)
+    t.puzzle.setInteractionEnabled(false)
+    t.internals.handleKeyDown({ key: '2', preventDefault() {} })
+
+    expect(t.find('keypad-answer').text()).toBe('?')
+  })
+
+  it('ignores the keypad outside an Arithmetic Step', () => {
+    const t = setup()
+    t.press('5')
+    expect(t.find('keypad-answer').text()).toBe('?')
+  })
+
+  it('shows the answer when solved and sends the final Answer after a moment', () => {
+    vi.useFakeTimers()
+    const t = setup()
+    const finished = vi.fn()
+    t.puzzle.onPuzzleFinished = finished
+
+    solve(t)
+
+    expect(finished).toHaveBeenCalledExactlyOnceWith(true)
+    expect(t.lit()).toBe(4)
+    expect(t.find('solved-panel').visible()).toBe(true)
+    expect(t.find('solved-answer').text()).toBe('x = 7')
+    expect(t.find('keypad-answer').text()).toBe('x = 7')
+    expect(t.answers).toHaveLength(3) // the Room-solving Answer waits
+
+    vi.advanceTimersByTime(FINAL_ANSWER_MS)
+    expect(t.answers).toHaveLength(4)
+    expect(t.answers[3]).toMatchObject({ playerAnswer: '7', isLastStep: true })
+  })
+
+  it('"Back to map" sends the final Answer at once, and only once', () => {
+    vi.useFakeTimers()
+    const t = setup()
+    solve(t)
+
+    t.find('back-to-map').fire('click')
+    vi.advanceTimersByTime(FINAL_ANSWER_MS)
+
+    expect(t.answers).toHaveLength(4)
+    expect(t.answers[3].isLastStep).toBe(true)
+  })
+
+  it('sendPendingAnswer (the Room\'s Exit) sends the final Answer at once, and only once', () => {
+    vi.useFakeTimers()
+    const t = setup()
+    t.puzzle.sendPendingAnswer() // nothing held yet
+    expect(t.answers).toHaveLength(0)
+    solve(t)
+
+    t.puzzle.sendPendingAnswer()
+    t.find('back-to-map').fire('click')
+    vi.advanceTimersByTime(FINAL_ANSWER_MS)
+
+    expect(t.answers).toHaveLength(4)
+    expect(t.answers[3]).toMatchObject({ playerAnswer: '7', isLastStep: true })
+  })
+
+  it('says when the answer has an x, and takes it typed as -10x', () => {
+    // Moving x * 7 leaves x * -3 - x * 7 = 10: the two x terms combine to -x * 10.
+    const t = setup('x * -3 = 10 + x * 7')
+    t.internals.controller.operation(1, false)
+    t.find('operation--').fire('click')
+
+    expect(t.find('keypad-prompt').text()).toBe('−3x − 7x =')
+    expect(t.find('step-message').text()).toBe('Combine the x terms: −3x − 7x')
+
+    t.press('-', '1', '0', 'x', 'Enter')
+    expect(t.answers[1]).toMatchObject({ playerAnswer: '-10x', correctAnswer: '-10 * x', isMultistepArithmetic: true })
+  })
+
+  it('solves -x = -9 in one Step: drop the minus sign and multiply', () => {
+    vi.useFakeTimers()
+    const t = setup('-x = -9')
+    expect(t.lights()).toBe(1)
+    expect(t.find('step-message').text()).toBe('Drag the − in front of x into the socket')
+
+    ;(t.internals.controller as unknown as { removeNegativeSign(left: boolean): void }).removeNegativeSign(true)
+    t.find('operation-*').fire('click')
+
+    expect(t.find('solved-answer').text()).toBe('x = 9')
+    expect(t.lit()).toBe(1)
+    expect(visibleTexts(t.layer)).toContain('Solved in 1 step, right on par!')
+  })
+
+  it('a longer way round keeps the lights at par and shows the extra Steps as +1', () => {
+    const t = setup()
+    // Move the 3 first (5 Steps) instead of the -7 (par 4).
+    t.internals.controller.operation(2, true)
+    t.find('operation-/').fire('click')
+    t.press('-', '7', '/', '3', 'Enter')
+    t.press('1', '4', '/', '3', 'Enter')
+    expect(t.lit()).toBe(3)
+    t.internals.controller.operation(1, true)
+    t.find('operation-+').fire('click')
+    expect(t.lit()).toBe(4)
+    expect(t.lights()).toBe(4)
+    expect(t.find('step-tag').text()).toBe('STEP 5 · PAR 4')
+
+    t.press('7', 'Enter')
+
+    expect(t.lights()).toBe(4)
+    expect(t.find('keypad-progress').text()).toBe('+1')
+    expect(t.find('solved-answer').text()).toBe('x = 7')
+    expect(visibleTexts(t.layer)).toContain('Solved in 5 steps (par 4)')
+  })
+
+  it('checks arithmetic the way the solver does: simplest form only', () => {
+    const t = setup()
+    // Moving the 3 first leaves -7 / 3 to work out.
+    t.internals.controller.operation(2, true)
+    t.find('operation-/').fire('click')
+    expect(t.find('operations-hint').text()).toContain('simplest fraction')
+
+    t.press('-', '1', '4', '/', '6', 'Enter')
+    expect(t.answers[1]).toMatchObject({ playerAnswer: '-14/6', isMultistepArithmetic: true })
+    expect(t.lit()).toBe(1)
+
+    t.press('-', '7', '/', '3', 'Enter')
+    expect(t.lit()).toBe(2)
+  })
+
+  it('operation Steps are not marked as arithmetic', () => {
+    const t = setup()
+    moveMinusSeven(t)
+    expect(t.answers[0].isMultistepArithmetic).toBeUndefined()
+  })
+
+  it('solving on par says so', () => {
+    vi.useFakeTimers()
+    const t = setup()
+    solve(t)
+    expect(visibleTexts(t.layer)).toContain('Solved in 4 steps, right on par!')
+    expect(t.find('keypad-progress').text()).toBe('4/4')
+  })
+
+  it('destroy removes everything it drew', () => {
+    const t = setup()
+    t.puzzle.destroy()
+    expect(t.layer.getChildren().filter(node => !node.destroyed)).toHaveLength(0)
+  })
+
+  it('rejects a layer that is not on a stage', () => {
+    const layer = new FakeLayer() as unknown as Konva.Layer
+    expect(() => new BasicMultistepPuzzle(EQUATION, { layer, x: 0, y: 0 })).toThrow()
   })
 })
+
+
+

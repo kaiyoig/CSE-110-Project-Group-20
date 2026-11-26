@@ -11,6 +11,7 @@ import { MapScreen } from "./screens/MapScreen";
 import { RoomScreen } from "./screens/RoomScreen";
 import { EndScreen } from "./screens/EndScreen";
 import { CreditsScreen } from "./screens/CreditsScreen";
+import { TutorialScreen } from "./screens/TutorialScreen";
 import { Game } from "./game/Game";
 import { connectEndScreenLeaderboard } from "./endScreenLeaderboard";
 
@@ -45,12 +46,14 @@ const mapScreen = new MapScreen(stage.width(), stage.height());
 const roomScreen = new RoomScreen(stage.width(), stage.height(), notifications);
 const endScreen = new EndScreen(stage.width(), stage.height());
 const creditsScreen = new CreditsScreen(stage.width(), stage.height());
+const tutorialScreen = new TutorialScreen(stage.width(), stage.height());
 
 screens.register("start", startScreen);
 screens.register("map", mapScreen);
 screens.register("room", roomScreen);
 screens.register("end", endScreen);
 screens.register("credits", creditsScreen);
+screens.register("tutorial", tutorialScreen);
 screens.show("start");
 
 // Safety net: if a font finishes downloading after startup, re-center all Konva.Text nodes
@@ -72,6 +75,17 @@ function startHeist(difficulty: Difficulty): void {
 
 startScreen.onStart((difficulty) => startHeist(difficulty));
 startScreen.onAudioMuteChange((muted) => audio.setMuted(muted));
+startScreen.onMusicVolumeChange((value) => audio.setMusicVolume(value));
+startScreen.onSfxVolumeChange((value) => audio.setSfxVolume(value));
+// Browser playback needs a real gesture. Subsequent calls are idempotent.
+stage.on("pointerdown", () => audio.startMusic());
+window.addEventListener("keydown", () => audio.startMusic());
+startScreen.onTutorial(() => screens.show("tutorial"));
+tutorialScreen.onMenu(() => screens.show("start"));
+tutorialScreen.onStartHeist(() => {
+  screens.show("start");
+  startScreen.showDifficultySelection();
+});
 startScreen.onCredits(() => screens.show("credits"));
 creditsScreen.onBack(() => screens.show("start"));
 

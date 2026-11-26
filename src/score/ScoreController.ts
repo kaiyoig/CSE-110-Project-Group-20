@@ -72,7 +72,7 @@ export class ScoreController {
   }
 
   /** The room's question was answered correctly. Returns the money earned. */
-  roomSolved(kind: RoomKind = "main", roomId?: string): number {
+  roomSolved(kind: RoomKind, roomId: string): number {
     this.syncElapsed();
     const earned = this.model.recordRoomSolved(kind, roomId);
     this.emitChange();

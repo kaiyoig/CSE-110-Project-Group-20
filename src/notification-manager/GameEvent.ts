@@ -18,6 +18,6 @@ export enum EventType {
 
 /** RoomSolved says which kind of Room was solved; every other event has no data. */
 export type GameEvent =
-  | { eventType: EventType.RoomSolved; roomKind: RoomKind; roomId?: string }
+  | { eventType: EventType.RoomSolved; roomKind: RoomKind; roomId: string }
   | { eventType: EventType.HintUsed; roomId: string }
   | { eventType: Exclude<EventType, EventType.RoomSolved | EventType.HintUsed> };

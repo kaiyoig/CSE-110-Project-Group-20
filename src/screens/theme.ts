@@ -41,6 +41,30 @@ export const VAULT_COLORS = {
   blue: "#053072ff",
 };
 
+export const PUZZLE_COLORS = {
+  powerBox: {
+    floor: "#b5e1e5ff",
+    border: "black",
+    button: "#a5f3fc",
+    stroke: "#0e7490",
+    text: "#164e63",
+  },
+  laser: {
+    floor: "#dfbcd0ff",
+    border: "black",
+    button: "#fce7f3",
+    stroke: "#be185d",
+    text: "#831843",
+  },
+  multistep: {
+    floor: COLORS.room,
+    border: "black",
+    button: COLORS.button,
+    stroke: COLORS.purple,
+    text: COLORS.purple,
+  },
+} as const;
+
 export const FONT_FAMILY = "Fredoka, sans-serif";
 
 /** A full-design-size background rectangle. */

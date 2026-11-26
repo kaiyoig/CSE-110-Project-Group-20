@@ -1,15 +1,54 @@
 import Konva from 'konva'
 
 import { Term, TermValue } from './types'
-import MultistepSolverModel from './multistep-solver-model'
+import MultistepSolverModel, { DisplayTerm as ModelDisplayTerm } from './multistep-solver-model'
 
 type Block = Konva.Group
+type BlockRole = 'value' | 'variable' | 'operator' | 'equals'
 
 interface DisplayTerm {
   term: Term
   modelIndex: number
+  isCoefficient?: boolean
   negativeSign?: boolean
   displayText?: string
+}
+
+/** Colors and type for the equation's blocks and the drop zone. */
+export interface MultistepSolverTheme {
+  valueFill: string
+  valueStroke?: string
+  valueText: string
+  /** Blocks holding a variable such as `x`; defaults to the value colors. */
+  variableFill?: string
+  variableStroke?: string
+  variableText?: string
+  operatorFill: string
+  operatorText: string
+  equalsFill: string
+  equalsText: string
+  fontFamily?: string
+  fontStyle?: string
+  /** How operators are shown, e.g. `{ '*': '·' }`. The model keeps its own. */
+  operatorSymbols?: Partial<Record<string, string>>
+  dropZoneFill: string
+  dropZoneStroke?: string
+  dropZoneLabel: string
+  dropZoneLabelColor: string
+  dropZoneFontSize: number
+}
+
+const DEFAULT_THEME: MultistepSolverTheme = {
+  valueFill: '#4ade80',
+  valueText: 'black',
+  operatorFill: '#ffde80',
+  operatorText: 'black',
+  equalsFill: '#bbcccc',
+  equalsText: 'black',
+  dropZoneFill: '#eeeeee',
+  dropZoneLabel: 'Drag term here',
+  dropZoneLabelColor: '#4b5563',
+  dropZoneFontSize: 14,
 }
 
 export interface MultistepSolverViewOptions {
@@ -17,7 +56,15 @@ export interface MultistepSolverViewOptions {
   panelHeight: number
   blockSize?: number
   panelColor?: string
+  theme?: Partial<MultistepSolverTheme>
+  /** Center of the equation, from the panel's top-left. Default: a quarter of the way down. */
+  equationCenter?: { x: number, y: number }
+  /** Center and size of the drop zone, from the panel's top-left. Default: the panel's center. */
+  dropZone?: { x: number, y: number, size: number }
 }
+
+/** Space on each side of a block's text, so wide values like `(-12)` fit. */
+const BLOCK_TEXT_PADDING = 8
 
 /** Renders the equation, solver panel, and drag-and-drop drop zone. */
 class MultistepSolverView {
@@ -39,11 +86,12 @@ class MultistepSolverView {
 
   private equalSign: Konva.Group
 
-  private OPERATOR_BACKGROUND = "#ffde80";
-  private VALUE_BACKGROUND = "#4ade80";
-  private readonly DROP_ZONE_SIZE = 100
+  private readonly theme: MultistepSolverTheme
+  private readonly equationCenter?: { x: number, y: number }
+  private readonly dropZoneCenter?: { x: number, y: number }
+  private readonly DROP_ZONE_SIZE: number
 
-  public onTargetDropped?: (index: number, left: boolean) => void
+  public onTargetDropped?: (index: number, left: boolean, isCoefficient: boolean) => void
   public onNegativeSignDropped?: (left: boolean) => void
 
   private rectIntersectsRect(a: Konva.IRect, b: Konva.IRect): boolean {
@@ -118,7 +166,7 @@ class MultistepSolverView {
           this.centerInDropzone(clone);
           this.dropZoneText.visible(false);
 
-          this.onTargetDropped?.(index, isLeftSide);
+          this.onTargetDropped?.(index, isLeftSide, block.getAttr('isCoefficient') === true);
         } else {
           clone.destroy();
         }
@@ -150,20 +198,24 @@ class MultistepSolverView {
     block.off(".palette");
   }
 
-  private createBlock(x: number, y: number, text: string, color: string): Konva.Group {
+  private createBlock(x: number, y: number, text: string, role: BlockRole): Konva.Group {
+    const width = this.blockWidth(text);
+    const colors = this.colorsFor(role);
     const group = new Konva.Group({
       x,
       y,
-      width: this.blockSize,
+      width,
       height: this.blockSize,
     });
 
     group.add(
       new Konva.Rect({
         name: "background",
-        width: this.blockSize,
+        width,
         height: this.blockSize,
-        fill: color,
+        fill: colors.fill,
+        stroke: colors.stroke,
+        strokeWidth: colors.stroke ? 3 : 0,
         cornerRadius: 6,
       })
     );
@@ -171,32 +223,91 @@ class MultistepSolverView {
     group.add(
       new Konva.Text({
         name: "text",
-        width: this.blockSize,
+        width,
         height: this.blockSize,
         text: text,
         align: "center",
         verticalAlign: "middle",
-        fontSize: Math.floor(this.blockSize * 2 / 4),
-        fill: "black",
+        fontSize: this.fontSize(),
+        fontFamily: this.theme.fontFamily,
+        fontStyle: this.theme.fontStyle,
+        fill: colors.text,
       })
     );
 
     return group;
   }
 
+  private fontSize(): number {
+    return Math.floor(this.blockSize * 2 / 4);
+  }
+
+  /**
+   * Wide enough for the text, never narrower than a square block. Measured
+   * from the character count (about 0.62 em each, a little wide for most
+   * fonts) so it does not depend on fonts having loaded.
+   */
+  private blockWidth(text: string): number {
+    const textWidth = [...text].length * this.fontSize() * 0.62;
+    return Math.max(this.blockSize, Math.ceil(textWidth + 2 * BLOCK_TEXT_PADDING));
+  }
+
+  private colorsFor(role: BlockRole): { fill: string, stroke?: string, text: string } {
+    const t = this.theme;
+    switch (role) {
+      case 'operator': return { fill: t.operatorFill, text: t.operatorText };
+      case 'equals': return { fill: t.equalsFill, text: t.equalsText };
+      case 'variable': return {
+        fill: t.variableFill ?? t.valueFill,
+        stroke: t.variableStroke ?? t.valueStroke,
+        text: t.variableText ?? t.valueText,
+      };
+      default: return { fill: t.valueFill, stroke: t.valueStroke, text: t.valueText };
+    }
+  }
+
+  private roleOf(displayTerm: DisplayTerm): BlockRole {
+    const term = displayTerm.term;
+    if (displayTerm.negativeSign) return 'value';
+    if (typeof term === 'string') return 'operator';
+    return term.constant ? 'value' : 'variable';
+  }
+
+  private textOf(displayTerm: DisplayTerm): string {
+    if (displayTerm.displayText) return displayTerm.displayText;
+    const term = displayTerm.term;
+    if (typeof term === 'string') return this.theme.operatorSymbols?.[term] ?? term;
+    return term.term;
+  }
+
+  /** Repaints and resizes a block for its text and role. */
+  private styleBlock(block: Block, text: string, role: BlockRole): void {
+    const width = this.blockWidth(text);
+    const colors = this.colorsFor(role);
+    const background = block.findOne<Konva.Rect>(".background");
+    const label = block.findOne<Konva.Text>(".text");
+    if (!label || !background) {
+      throw Error("Could not update block because text or background doesn't exist in the group.");
+    }
+    block.width(width);
+    background.width(width);
+    background.fill(colors.fill);
+    background.setAttr('stroke', colors.stroke);
+    background.setAttr('strokeWidth', colors.stroke ? 3 : 0);
+    label.width(width);
+    label.text(text);
+    label.fill(colors.text);
+  }
+
   private createTermBlock(x: number, y: number, displayTerm: DisplayTerm): Konva.Group {
     let term = displayTerm.term;
     let isOperator = typeof term == "string";
-    let fillColor = displayTerm.negativeSign
-      ? this.VALUE_BACKGROUND
-      : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND;
 
-    let text = displayTerm.displayText ?? (isOperator ? (term as string) : (term as TermValue).term);
-
-    let group = this.createBlock(x, y, text, fillColor);
+    let group = this.createBlock(x, y, this.textOf(displayTerm), this.roleOf(displayTerm));
 
     group.setAttr('term', term);
     group.setAttr('modelIndex', displayTerm.modelIndex);
+    group.setAttr('isCoefficient', displayTerm.isCoefficient === true);
     if (displayTerm.negativeSign) {
       group.setAttr('negativeSign', true);
       this.makePaletteBlock(group);
@@ -227,6 +338,7 @@ class MultistepSolverView {
     const isNegativeSign = displayTerm.negativeSign === true;
     const isOperator = typeof term === 'string';
     block.setAttr('modelIndex', displayTerm.modelIndex);
+    block.setAttr('isCoefficient', displayTerm.isCoefficient === true);
     block.setAttr('negativeSign', isNegativeSign);
 
     const shouldBePalette = isNegativeSign || !isOperator;
@@ -237,72 +349,59 @@ class MultistepSolverView {
       this.removePaletteStatus(block);
     }
 
-    if (prevTerm == term) {
-      let background = block.findOne<Konva.Rect>(".background");
-      if (background) {
-        background.fill(isNegativeSign
-          ? this.VALUE_BACKGROUND
-          : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
-      }
-      return;
-    }
-
-    block.setAttr('term', term);
-    let text = block.findOne<Konva.Text>(".text");
-    let background = block.findOne<Konva.Rect>(".background");
-
-    if (!text || !background) {
-      throw Error("Could not update block because text or background doesn't exist in the group.");
-    }
-
-    text.text(displayTerm.displayText ?? (isOperator ? term as string : (term as TermValue).term));
-    background.fill(isNegativeSign
-      ? this.VALUE_BACKGROUND
-      : isOperator ? this.OPERATOR_BACKGROUND : this.VALUE_BACKGROUND);
+    if (prevTerm != term) block.setAttr('term', term);
+    this.styleBlock(block, this.textOf(displayTerm), this.roleOf(displayTerm));
   }
 
-  private getDisplayTerms(terms: Array<Term>): Array<DisplayTerm> {
+  private getDisplayTerms(displaySide: Array<ModelDisplayTerm>): Array<DisplayTerm> {
     let displayTerms: Array<DisplayTerm> = [];
+    const terms = displaySide.map(({ term }) => term);
     const hasLeadingMinusOperator = terms[0] === '-';
     const variableIndex = hasLeadingMinusOperator ? 1 : 0;
     const multiplicationIndex = variableIndex + 1;
     const coefficientIndex = variableIndex + 2;
-    const canRemoveNegativeSign = terms.length === coefficientIndex + 1 &&
-      typeof terms[variableIndex] !== 'string' &&
-      terms[variableIndex].constant === false &&
-      (hasLeadingMinusOperator || !terms[variableIndex].positive) &&
-      terms[multiplicationIndex] === '*' &&
-      typeof terms[coefficientIndex] !== 'string' &&
-      terms[coefficientIndex].constant === true;
+    const variable = terms[variableIndex];
+    const isNegativeVariable = variable !== undefined && typeof variable !== 'string' &&
+      variable.constant === false &&
+      (hasLeadingMinusOperator || !variable.positive);
+    // `-x * 3` or a lone `-x`: its minus sign can be dragged away.
+    const canRemoveNegativeSign = isNegativeVariable && (
+      terms.length === variableIndex + 1 || (
+        terms.length === coefficientIndex + 1 &&
+        terms[multiplicationIndex] === '*' &&
+        typeof terms[coefficientIndex] !== 'string' &&
+        terms[coefficientIndex].constant === true));
 
     for (let i = 0; i < terms.length; ++i) {
       let term = terms.at(i);
       if (!term) continue;
+      const modelDisplayTerm = displaySide[i]
 
       const isZero = typeof term !== 'string' && term.constant && term.term.split('/')[0] === '0';
       if (i === 0 && hasLeadingMinusOperator && canRemoveNegativeSign) {
         displayTerms.push({
           term: '-',
-          modelIndex: variableIndex,
+          modelIndex: displaySide[variableIndex].modelIndex,
           negativeSign: true,
         });
         continue;
       }
       if (i === 0 && hasLeadingMinusOperator) {
-        displayTerms.push({ term, modelIndex: i });
+        displayTerms.push({ term, modelIndex: displaySide[i].modelIndex });
         continue;
       }
-      if (i === 0 && typeof term !== 'string' && !term.positive && !isZero) {
+      if (i === 0 && typeof term !== 'string' && !term.positive && !isZero &&
+        !(term.constant && terms[i + 1] === '*')) {
         displayTerms.push({
           term: '-',
-          modelIndex: i,
+          modelIndex: displaySide[i].modelIndex,
           negativeSign: canRemoveNegativeSign,
         });
       }
       if (i > 0 && typeof term !== 'string' && typeof terms[i - 1] !== 'string') {
         displayTerms.push({
           term: term.positive ? '+' : '-',
-          modelIndex: i,
+          modelIndex: displaySide[i].modelIndex,
         });
       }
       const isNegativeFactor = i > 0 &&
@@ -312,16 +411,22 @@ class MultistepSolverView {
         term.constant;
       displayTerms.push({
         term,
-        modelIndex: i,
-        displayText: isNegativeFactor ? `(-${term.term})` : undefined,
+        modelIndex: displaySide[i].modelIndex,
+        isCoefficient: displaySide[i].isCoefficient,
+        displayText: modelDisplayTerm.displayText ?? (isNegativeFactor
+          ? `(-${term.term})`
+          : (i === 0 && typeof term !== 'string' && !term.positive && term.constant && terms[i + 1] === '*')
+            ? `-${term.term}`
+            : undefined),
       });
     }
 
     return displayTerms;
   }
 
-  private updateSide(side: Array<Block>, terms: Array<Term>) {
-    let displayTerms = this.getDisplayTerms(terms);
+  private updateSide(side: Array<Block>, displaySide: Array<ModelDisplayTerm>) {
+    let displayTerms = this.getDisplayTerms(displaySide);
+    // console.debug(displaySide, displayTerms)
 
     if (displayTerms.length < side.length) {
       let extraBlocks = side.splice(displayTerms.length);
@@ -352,36 +457,27 @@ class MultistepSolverView {
     }
   }
 
+  // Blocks sit side by side, each as wide as its text.
   private layoutEquation() {
-    const equationBlockCount = this.leftSide.length + 1 + this.rightSide.length
-    const equationWidth = equationBlockCount * this.blockSize
-    const xStart = (this.panelWidth - equationWidth) / 2
-    const y = this.panelHeight * 0.25 - this.blockSize / 2
+    const blocks = [...this.leftSide, this.equalSign, ...this.rightSide]
+    const gap = this.equationCenter ? 6 : 0
+    const equationWidth = blocks.reduce((sum, block) => sum + block.width(), 0) + gap * (blocks.length - 1)
+    const centerX = this.equationCenter?.x ?? this.panelWidth / 2
+    const centerY = this.equationCenter?.y ?? this.panelHeight * 0.25
+    const y = centerY - this.blockSize / 2
 
-    for (let i = 0; i < this.leftSide.length; ++i) {
-      this.leftSide[i].position({
-        x: xStart + i * this.blockSize,
-        y,
-      })
-    }
-
-    this.equalSign.position({
-      x: xStart + this.leftSide.length * this.blockSize,
-      y,
-    })
-
-    for (let i = 0; i < this.rightSide.length; ++i) {
-      this.rightSide[i].position({
-        x: xStart + (this.leftSide.length + 1 + i) * this.blockSize,
-        y,
-      })
+    let x = centerX - equationWidth / 2
+    for (const block of blocks) {
+      block.position({ x, y })
+      x += block.width() + gap
     }
   }
 
   private centerDropzone() {
+    const center = this.dropZoneCenter ?? { x: this.panelWidth / 2, y: this.panelHeight / 2 }
     this.dropZone.position({
-      x: (this.panelWidth - this.DROP_ZONE_SIZE) / 2,
-      y: (this.panelHeight - this.DROP_ZONE_SIZE) / 2,
+      x: center.x - this.DROP_ZONE_SIZE / 2,
+      y: center.y - this.DROP_ZONE_SIZE / 2,
     })
   }
 
@@ -406,6 +502,14 @@ class MultistepSolverView {
       throw Error('MultistepSolverView blockSize must be a positive number.')
     }
 
+    this.theme = { ...DEFAULT_THEME, ...options.theme }
+    this.equationCenter = options.equationCenter
+    this.dropZoneCenter = options.dropZone
+    this.DROP_ZONE_SIZE = options.dropZone?.size ?? 100
+    if (!Number.isFinite(this.DROP_ZONE_SIZE) || this.DROP_ZONE_SIZE <= 0) {
+      throw Error('MultistepSolverView dropZone size must be a positive number.')
+    }
+
     this.view = new Konva.Group({});
 
     this.stage = stage;
@@ -418,6 +522,8 @@ class MultistepSolverView {
       height: this.panelHeight,
       fill: options.panelColor ?? '#4b5563',
       cornerRadius: 20,
+      // Only a backdrop: never take clicks from controls drawn under the view.
+      listening: false,
     });
     this.view.add(this.panel);
 
@@ -428,11 +534,14 @@ class MultistepSolverView {
     this.dropZoneText = new Konva.Text({
       width: this.DROP_ZONE_SIZE,
       height: this.DROP_ZONE_SIZE,
-      text: "Drag term here",
+      text: this.theme.dropZoneLabel,
       align: "center",
       verticalAlign: "middle",
-      fontSize: 14,
-      fill: "#4b5563",
+      fontSize: this.theme.dropZoneFontSize,
+      fontFamily: this.theme.fontFamily,
+      fontStyle: this.theme.fontStyle,
+      fill: this.theme.dropZoneLabelColor,
+      padding: 8,
       listening: false,
     });
 
@@ -440,7 +549,10 @@ class MultistepSolverView {
       new Konva.Rect({
         width: this.DROP_ZONE_SIZE,
         height: this.DROP_ZONE_SIZE,
-        fill: "#eeeeee",
+        fill: this.theme.dropZoneFill,
+        stroke: this.theme.dropZoneStroke,
+        strokeWidth: this.theme.dropZoneStroke ? 3 : 0,
+        dash: this.theme.dropZoneStroke ? [10, 6] : undefined,
         cornerRadius: 20,
       }),
       this.dropZoneText,
@@ -448,7 +560,7 @@ class MultistepSolverView {
     this.dropZone.visible(false);
     this.view.add(this.dropZone);
 
-    this.equalSign = this.createBlock(0, 0, "=", "#bbcccc");
+    this.equalSign = this.createBlock(0, 0, "=", 'equals');
     this.equalSign.visible(false);
     this.view.add(this.equalSign);
 
@@ -478,8 +590,8 @@ class MultistepSolverView {
       return;
     }
 
-    this.updateSide(this.leftSide, leftSide);
-    this.updateSide(this.rightSide, rightSide);
+    this.updateSide(this.leftSide, model.getDisplaySide(true));
+    this.updateSide(this.rightSide, model.getDisplaySide(false));
 
     this.layoutEquation();
 

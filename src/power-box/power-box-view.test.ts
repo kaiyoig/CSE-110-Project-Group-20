@@ -52,6 +52,26 @@ describe("PowerBoxView", () => {
     }
   });
 
+  it("keeps the longest Hard equation on one line, the same size on every screen", () => {
+    // 28 characters: the longest prompt the QuestionGenerator makes.
+    const longest = "x / -11 - 12 = x * -10 - 121";
+    // 4 rows (Medium) leaves the screens tall enough for the full 28px font.
+    view.render(["x * 2 + 3 = 13", longest, "x / 2 - 1 = 3", "a"], ["1", "2", "3", "4"]);
+
+    const labels = [0, 1, 2, 3].map((i) => one(`.left-${i}`).findOne(".label-text")!);
+    const box = one(".left-1").findOne(".label-box")!;
+    // Courier New glyphs are 0.6em wide; the text has to clear the box's border.
+    expect(labels[1].fontSize() * 0.6 * longest.length).toBeLessThanOrEqual(box.width() - box.strokeWidth());
+    for (const label of labels) {
+      expect(label.wrap()).toBe("none");
+      expect(label.fontSize()).toBe(labels[1].fontSize());
+    }
+  });
+
+  it("keeps short equations at full size", () => {
+    expect(one(".left-0").findOne(".label-text")!.fontSize()).toBe(28);
+  });
+
   it("reports which left and right jacks are pressed", () => {
     const pressed: string[] = [];
     view.onLeftPressed = (left) => pressed.push(`L${left}`);

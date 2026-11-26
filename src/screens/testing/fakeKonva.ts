@@ -15,7 +15,7 @@ const DEFAULTS: Record<string, unknown> = {
 const ATTRS = [
   "x", "y", "width", "height", "visible", "listening", "fill", "stroke", "strokeWidth",
   "text", "opacity", "fontSize", "fontStyle", "fontFamily", "align", "verticalAlign",
-  "cornerRadius", "name", "clipX", "clipY", "clipWidth", "clipHeight", "radius", "points", "data",
+  "cornerRadius", "name", "wrap", "clipX", "clipY", "clipWidth", "clipHeight", "radius", "points", "data",
 ];
 
 export class FakeNode {

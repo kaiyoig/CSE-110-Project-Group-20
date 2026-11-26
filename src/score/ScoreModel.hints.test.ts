@@ -22,6 +22,10 @@ describe("room hint reward penalties", () => {
   it("caps penalties at two hints and never reduces money below zero", () => {
     const model = new ScoreModel({ difficulty: Difficulty.Hard });
     for (let i = 0; i < 10; i++) model.recordHintUsed("bonus");
+    expect(model.getHintsUsed("bonus")).toBe(2);
+    expect(model.canUseHint("bonus")).toBe(false);
+    expect(model.getHintsUsed("other")).toBe(0);
+    expect(model.canUseHint("other")).toBe(true);
     expect(model.recordRoomSolved("bonus", "bonus")).toBe(900);
     expect(model.getMoney()).toBe(900);
   });
@@ -32,6 +36,12 @@ describe("room hint reward penalties", () => {
     model.recordHintUsed("room_a");
     expect(model.getIncorrectAnswers()).toBe(0);
     expect(model.getTimeRemainingMs()).toBe(previous);
+  });
+
+  it("rejects a solved room without an ID", () => {
+    const model = new ScoreModel();
+    expect(() => model.recordRoomSolved("main", "")).toThrow(RangeError);
+    expect(model.getMoney()).toBe(0);
   });
 
   it("rejects hints without a room ID", () => {

@@ -13,13 +13,8 @@ stage.add(layer)
 
 const puzzle = new BasicMultistepPuzzle('x * 5 + 3 = 8', {
   layer,
-  x: 1920 / 2 - 350,
-  y: 1080 / 2 - 200,
-  width: 700,
-  height: 400,
-  spacing: 24,
-  blockSize: 32,
-  panelColor: '#4b5563',
+  x: 1920 / 2,
+  y: 1080 / 2,
 })
 
 puzzle.onPuzzleFinished = solved => {

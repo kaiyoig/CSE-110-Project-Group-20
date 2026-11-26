@@ -136,6 +136,7 @@ vi.mock('konva', () => {
 
 import Konva from 'konva'
 import MultistepSolverModel from './multistep-solver-model'
+import MultistepSolverController from './multistep-solver-controller'
 import MultistepSolverView from './multistep-solver-view'
 import { constantTerm, variableTerm } from './types'
 
@@ -173,7 +174,7 @@ describe('MultistepSolverView', () => {
     expect(layer.children).toContain(internal.view)
   })
 
-  it('updates reused blocks into a green draggable negative-sign palette block', () => {
+  it('renders a negative coefficient before its variable', () => {
     const { view } = setup()
     const model = new MultistepSolverModel()
     model.addLeft(variableTerm('x', true))
@@ -186,8 +187,9 @@ describe('MultistepSolverView', () => {
     view.update(model)
 
     const negativeBlock = (view as any).leftSide[0]
-    expect(negativeBlock.getAttr('negativeSign')).toBe(true)
+    expect(negativeBlock.getAttr('negativeSign')).not.toBe(true)
     expect(negativeBlock.getAttr('paletteBlock')).toBe(true)
+    expect(negativeBlock.findOne('.text').text()).toBe('-5')
     expect(negativeBlock.findOne('.background').fill()).toBe('#4ade80')
     expect(negativeBlock.listeners['mousedown.palette touchstart.palette']).toHaveLength(1)
   })
@@ -222,6 +224,109 @@ describe('MultistepSolverView', () => {
     view.update(model)
 
     const internal = view as any
-    expect(internal.leftSide[4].findOne('.text').text()).toBe('(-3)')
+    const leftText = (internal.leftSide as any[])
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(leftText).toContain('x * 5 * (-3)')
+  })
+
+  it('renders an unreduced negative coefficient after dividing both sides', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    model.addLeft({ term: 'x', positive: false, constant: false })
+    model.addLeft('*')
+    model.addLeft({ term: '6', positive: true, constant: true })
+    model.addLeft('/')
+    model.addLeft({ term: '8', positive: false, constant: true })
+    model.addRight({ term: '1', positive: true, constant: true })
+
+    view.update(model)
+
+    const rightText = (view as any).leftSide
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(rightText).toContain('-6/-8')
+  })
+
+  it('keeps multiplication factors separate instead of reducing them', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    model.addLeft({ term: '7', positive: false, constant: true })
+    model.addLeft('*')
+    model.addLeft({ term: 'x', positive: true, constant: false })
+    model.addLeft('*')
+    model.addLeft({ term: '14', positive: true, constant: true })
+    model.addRight({ term: '1', positive: true, constant: true })
+
+    view.update(model)
+
+    const leftText = (view as any).leftSide
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(leftText).toContain('-7 * x * 14')
+  })
+
+  it('does not render 10 * x * -4 as -40 * x', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    model.addLeft({ term: '10', positive: true, constant: true })
+    model.addLeft('*')
+    model.addLeft({ term: 'x', positive: true, constant: false })
+    model.addLeft('*')
+    model.addLeft({ term: '4', positive: false, constant: true })
+    model.addRight({ term: '1', positive: true, constant: true })
+
+    view.update(model)
+
+    const leftText = (view as any).leftSide
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(leftText).not.toContain('-40')
+    expect(leftText).toContain('10 * x * (-4)')
+  })
+
+  it('keeps the factors after the controller updates the existing view', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    const controller = new MultistepSolverController(model, view)
+    controller.setEquation('-x / 4 - 9 = 10 * x - 173')
+    controller.operation(2, true, true)
+    controller.moveRequest('*')
+    controller.step()
+
+    const rightText = (view as any).rightSide
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(rightText).not.toContain('-40')
+    expect(rightText).toContain('10 * (-4) * x')
+  })
+
+  it('does not fold b and a when multiplying a in x / a = b * x', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    const controller = new MultistepSolverController(model, view)
+    controller.setEquation('x / 3 = 5 * x')
+    controller.operation(2, true, true)
+    controller.moveRequest('*')
+    controller.step()
+
+    const rightText = (view as any).rightSide
+      .map((block: any) => block.findOne('.text').text())
+      .join(' ')
+    expect(rightText).not.toContain('15')
+    expect(rightText).toContain('5 * x * 3')
+  })
+
+  it('lets the minus sign of a lone -x be dragged away', () => {
+    const { view } = setup()
+    const model = new MultistepSolverModel()
+    model.addLeft(variableTerm('x', false))
+    model.addRight({ term: '9', positive: false, constant: true })
+
+    view.update(model)
+
+    const sign = (view as any).leftSide[0]
+    expect(sign.getAttr('negativeSign')).toBe(true)
+    expect(sign.getAttr('paletteBlock')).toBe(true)
   })
 })

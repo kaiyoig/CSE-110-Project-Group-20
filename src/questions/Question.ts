@@ -13,6 +13,8 @@ export interface StepAnswer {
   /** True for the Step that solves the Question. */
   isLastStep: boolean;
   stepPrompt?: string;
+  /** True only for arithmetic answers from the multistep solver puzzle. */
+  isMultistepArithmetic?: boolean;
   /**
    * The Question this Answer is for, when a puzzle has several (Power Box,
    * Laser Match: one per pair). Left out, the Answer is for the Room's Question.

@@ -18,6 +18,7 @@ export const CREDITS: CreditsSection[] = [
   { heading: "Team", lines: ["Seven Flaminiano", "Calista Hartono", "Asad Pasha Chaudhry", "Ping-Shu Lee", "Brian To", "Kaiyo Igaki"] },
   { heading: "Built With", lines: ["Konva", "Vite + TypeScript"] },
   { heading: "Fonts", lines: ["Gasoek One", "Fredoka"] },
+  { heading: "Music", lines: ["Spy Loop — wipics (CC0)"] },
 ];
 
 const PADDING = 40;

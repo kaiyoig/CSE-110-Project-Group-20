@@ -1,12 +1,14 @@
-import { Term, TermOp, TermValue } from './types'
+import { TermOp, TermValue } from './types'
 import MultistepSolverModel from './multistep-solver-model'
 import MultistepSolverView from './multistep-solver-view'
+import { acceptableArithmeticAnswer } from './arithmetic-expression'
 
 export type MultistepSolverState = 'Idle' | 'Operation' | 'Arithmetic' | 'Finished'
 
 interface PendingOperation {
   kind: 'term' | 'negativeSign'
   index?: number
+  isCoefficient?: boolean
   isLeftSide: boolean
   accepted: boolean
 }
@@ -83,13 +85,13 @@ class MultistepSolverController {
   }
 
   /** Records a dropped term and enters operation mode. @param index Term index. @param isLeftSide Whether the term is on the left. */
-  public operation(index: number, isLeftSide: boolean): void {
+  public operation(index: number, isLeftSide: boolean, isCoefficient = false): void {
     if (this.state === 'Arithmetic' || this.state === 'Finished') return
 
     const side = isLeftSide ? this.model.getLeftSide() : this.model.getRightSide()
     if (index < 0 || index >= side.length || typeof side[index] === 'string') return
 
-    this.pendingOperation = { kind: 'term', index, isLeftSide, accepted: false }
+    this.pendingOperation = { kind: 'term', index, isLeftSide, isCoefficient, accepted: false }
     this.setState('Operation')
   }
 
@@ -105,11 +107,13 @@ class MultistepSolverController {
   public moveRequest(operation: TermOp): void {
     if (this.state !== 'Operation' || !this.pendingOperation) return
 
+    // Multiplication and division by -1 is equivalent
     const expectedOperation = this.pendingOperation.kind === 'negativeSign'
-      ? '*'
+      ? (operation === '/' ? '/' : '*')
       : this.model.correctOperation(
         this.pendingOperation.index!,
         this.pendingOperation.isLeftSide,
+        this.pendingOperation.isCoefficient,
       )
     const isCorrect = operation === expectedOperation
     this.pendingOperation.accepted = isCorrect
@@ -128,8 +132,8 @@ class MultistepSolverController {
 
     const isLastStep = this.wouldFinish(scratch => {
       if (pending.kind === 'negativeSign') scratch.removeNegativeSign(pending.isLeftSide)
-      else if (pending.isLeftSide) scratch.moveLeftTerm(pending.index!)
-      else scratch.moveRightTerm(pending.index!)
+      else if (pending.isLeftSide) scratch.moveLeftTerm(pending.index!, pending.isCoefficient)
+      else scratch.moveRightTerm(pending.index!, pending.isCoefficient)
     })
 
     this.onAnswerSubmit?.(
@@ -153,7 +157,7 @@ class MultistepSolverController {
 
     const [stepPrompt, correctAnswer] = problems[0]
     const isLastStep = this.isLastArithmeticStep()
-    this.arithmeticAnswerAccepted = answer === correctAnswer
+    this.arithmeticAnswerAccepted = acceptableArithmeticAnswer(answer, stepPrompt, correctAnswer)
     this.onAnswerSubmit?.(this.equation, answer, correctAnswer, isLastStep,
       stepPrompt)
   }
@@ -168,9 +172,9 @@ class MultistepSolverController {
       if (this.pendingOperation.kind === 'negativeSign') {
         this.model.removeNegativeSign(this.pendingOperation.isLeftSide)
       } else if (this.pendingOperation.isLeftSide) {
-        this.model.moveLeftTerm(this.pendingOperation.index!)
+        this.model.moveLeftTerm(this.pendingOperation.index!, this.pendingOperation.isCoefficient)
       } else {
-        this.model.moveRightTerm(this.pendingOperation.index!)
+        this.model.moveRightTerm(this.pendingOperation.index!, this.pendingOperation.isCoefficient)
       }
 
       this.pendingOperation = null
@@ -262,20 +266,17 @@ class MultistepSolverController {
    * The real model is untouched.
    */
   private wouldFinish(change: (scratch: MultistepSolverModel) => void): boolean {
-    const copy = (term: Term): Term => (typeof term === 'string' ? term : { ...term })
-    const scratch = new MultistepSolverModel()
-    this.model.getLeftSide().forEach(term => scratch.addLeft(copy(term)))
-    this.model.getRightSide().forEach(term => scratch.addRight(copy(term)))
+    const scratch = this.model.clone()
     try {
       change(scratch)
     } catch {
       return false
     }
-    return isSolved(scratch.getLeftSide(), scratch.getRightSide())
+    return scratch.isSolved()
   }
 
   private isSolvedEquation(): boolean {
-    return isSolved(this.model.getLeftSide(), this.model.getRightSide())
+    return this.model.isSolved()
   }
 
   private updateStateAfterModelChange(): void {
@@ -295,21 +296,6 @@ class MultistepSolverController {
     this.setState('Arithmetic')
     this.onArithmeticStep?.(problems[0][0])
   }
-}
-
-/** True for `x = n` or `n = x` (a lone positive variable against a lone constant). */
-function isSolved(left: Array<Term>, right: Array<Term>): boolean {
-  const isVariable = (side: Array<Term>): boolean => {
-    if (side.length !== 1) return false
-    const term = side[0]
-    return typeof term !== 'string' && !term.constant && term.positive
-  }
-  const isConstant = (side: Array<Term>): boolean => {
-    if (side.length !== 1) return false
-    const term = side[0]
-    return typeof term !== 'string' && term.constant
-  }
-  return (isVariable(left) && isConstant(right)) || (isConstant(left) && isVariable(right))
 }
 
 export default MultistepSolverController

@@ -172,23 +172,31 @@ export class ScoreModel {
    * Player solved a room's question. Returns the money earned.
    * Once time is up the solve is rejected: nothing is counted and 0 is returned.
    */
-  recordRoomSolved(kind: RoomKind, roomId?: string): number {
+  recordRoomSolved(kind: RoomKind, roomId: string): number {
+    if (!roomId) throw new RangeError("A solved room must have a room ID");
     if (!(kind in ROOM_MONEY)) throw new RangeError(`unknown room kind: ${kind}`);
     if (this.isTimeUp()) return 0;
     if (kind === "bonus") this.bonusRoomsSolved += 1;
     else this.mainRoomsSolved += 1;
     const fullReward = ROOM_MONEY[kind] * this.getMultiplier();
-    const hintsUsed = roomId ? (this.hintsUsedByRoom.get(roomId) ?? 0) : 0;
+    const hintsUsed = this.getHintsUsed(roomId);
     const earned = Math.round(fullReward * (1 - HINT_REWARD_PENALTY_RATE * hintsUsed));
     this.money += earned;
     return earned;
   }
 
+  getHintsUsed(roomId: string): number {
+    return this.hintsUsedByRoom.get(roomId) ?? 0;
+  }
+
+  canUseHint(roomId: string): boolean {
+    return this.getHintsUsed(roomId) < MAX_HINTS_PER_ROOM;
+  }
+
   /** Records a hint for this room without affecting mistakes or the clock. */
   recordHintUsed(roomId: string): void {
     if (!roomId) throw new RangeError("A hint must have a room ID");
-    const prior = this.hintsUsedByRoom.get(roomId) ?? 0;
-    this.hintsUsedByRoom.set(roomId, Math.min(MAX_HINTS_PER_ROOM, prior + 1));
+    if (this.canUseHint(roomId)) this.hintsUsedByRoom.set(roomId, this.getHintsUsed(roomId) + 1);
   }
 
   /** Player answered wrong: counts the mistake and removes penaltyMs from the clock. */

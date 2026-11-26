@@ -65,8 +65,8 @@ describe("ScoreController", () => {
     const c = new ScoreController(new ScoreModel({ difficulty: Difficulty.Hard }));
     const listener = vi.fn();
     c.onChange(listener);
-    expect(c.roomSolved("main")).toBe(600);
-    expect(c.roomSolved("bonus")).toBe(1800);
+    expect(c.roomSolved("main", "main_room")).toBe(600);
+    expect(c.roomSolved("bonus", "bonus_room")).toBe(1800);
     expect(c.getModel().getMoney()).toBe(2400);
     expect(listener).toHaveBeenCalledTimes(2);
   });
@@ -161,8 +161,8 @@ describe("ScoreController", () => {
     });
 
     it("RoomSolved adds money for its room kind", () => {
-      notifications.send({ eventType: EventType.RoomSolved, roomKind: "main" });
-      notifications.send({ eventType: EventType.RoomSolved, roomKind: "bonus" });
+      notifications.send({ eventType: EventType.RoomSolved, roomKind: "main", roomId: "main_room" });
+      notifications.send({ eventType: EventType.RoomSolved, roomKind: "bonus", roomId: "bonus_room" });
 
       expect(c.getModel().getMoney()).toBe(300 + 900);
       expect(c.getModel().getWeightedCorrect()).toBe(1 + 3);
@@ -181,7 +181,7 @@ describe("ScoreController", () => {
       const other = new ScoreController(new ScoreModel());
       const stop = other.listenTo(notifications);
       stop();
-      notifications.send({ eventType: EventType.RoomSolved, roomKind: "main" });
+      notifications.send({ eventType: EventType.RoomSolved, roomKind: "main", roomId: "main_room" });
 
       expect(other.getModel().getMoney()).toBe(0);
     });

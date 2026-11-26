@@ -324,7 +324,7 @@ describe("EndScreen", () => {
 
       saveButton().fire("click");
       expect(onSaveScore).toHaveBeenCalledTimes(2);
-      expect(prompt()).toBe("Enter your name to save your score");
+      expect(prompt()).toBe("Enter your name to save your score:");
     });
 
     it("fills the name box with the suggested name for each new result", () => {

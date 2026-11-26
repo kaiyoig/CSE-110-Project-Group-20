@@ -4,6 +4,7 @@ import type { StartScreen as StartScreenContract, Unsubscribe } from "./contract
 import { DESIGN_HEIGHT, DESIGN_WIDTH, fitLayer } from "./layout";
 import { Listeners } from "./listeners";
 import { COLORS, createBackground, createText, setCursor } from "./theme";
+import { DEFAULT_MUSIC_VOLUME, DEFAULT_SFX_VOLUME, clampVolume } from "../audio/AudioManager";
 
 const DIFFICULTIES = [Difficulty.Easy, Difficulty.Medium, Difficulty.Hard] as const;
 
@@ -29,6 +30,8 @@ export class StartScreen implements StartScreenContract {
   private readonly leaderboardClicks = new Listeners<[]>();
   private readonly credits = new Listeners<[]>();
   private readonly muteChanges = new Listeners<[boolean]>();
+  private readonly musicVolumeChanges = new Listeners<[number]>();
+  private readonly sfxVolumeChanges = new Listeners<[number]>();
   private readonly audioSettings = new Konva.Group({ visible: false, name: "audio-settings" });
   private muteLabel: Konva.Text | null = null;
   private muted = false;
@@ -182,11 +185,7 @@ export class StartScreen implements StartScreenContract {
       label: "PLAY",
       fill: "#7cfc30",
       name: "play-button",
-      onClick: () => {
-        this.mainMenuGroup.hide();
-        this.difficultyGroup.show();
-        this.layer.batchDraw();
-      },
+      onClick: () => this.showDifficultySelection(),
     });
     this.mainMenuGroup.add(playBtn);
 
@@ -547,30 +546,25 @@ export class StartScreen implements StartScreenContract {
       width: DESIGN_WIDTH, height: DESIGN_HEIGHT, fill: COLORS.background,
     }));
     this.audioSettings.add(new Konva.Rect({
-      x: 206, y: 136, width: 987, height: 627,
+      x: 206, y: 156, width: 987, height: 607,
       fill: COLORS.room, cornerRadius: 18, name: "settings-panel",
     }));
     this.audioSettings.add(createText({
-      x: 300, y: 60, width: 840, text: "SETTINGS",
+      x: 300, y: 40, width: 840, text: "SETTINGS", name: "settings-heading",
       fontFamily: "Gasoek One", fontStyle: "normal", fontSize: 80,
       align: "center", fill: COLORS.gold, listening: false,
     }));
-    this.audioSettings.add(createText({
-      x: 245, y: 258, width: 900, text: "Sound Effects",
-      fontSize: 50, fill: COLORS.purple, listening: false,
-    }));
-    this.audioSettings.add(createText({
-      x: 245, y: 346, width: 900,
-      text: "Sound effects play when you answer, solve a room, or use a hint.",
-      fontSize: 25, fill: COLORS.purple, listening: false,
-    }));
-    const muteToggle = new Konva.Group({ x: 245, y: 443, name: "audio-mute-toggle" });
-    muteToggle.add(new Konva.Rect({
+    this.buildVolumeSlider("Music", "music-volume", 240, DEFAULT_MUSIC_VOLUME, (v) => this.musicVolumeChanges.emit(v));
+    this.buildVolumeSlider("Sound Effects", "sfx-volume", 390, DEFAULT_SFX_VOLUME, (v) => this.sfxVolumeChanges.emit(v));
+    const muteToggle = new Konva.Group({ x: 245, y: 560, name: "audio-mute-toggle" });
+    const muteFace = new Konva.Rect({
       width: 550, height: 90, cornerRadius: 24,
       fill: COLORS.green, stroke: COLORS.purple, strokeWidth: 4,
-    }));
+      name: "audio-mute-face",
+    });
+    muteToggle.add(muteFace);
     this.muteLabel = createText({
-      width: 550, height: 90, text: "Sound Effects: ON", name: "audio-mute-label",
+      width: 550, height: 90, text: "Mute all: OFF", name: "audio-mute-label",
       align: "center", verticalAlign: "middle", fontSize: 40,
       fill: COLORS.purple, listening: false,
     });
@@ -579,7 +573,8 @@ export class StartScreen implements StartScreenContract {
     muteToggle.on("mouseleave", () => setCursor(muteToggle, ""));
     muteToggle.on("click tap", () => {
       this.muted = !this.muted;
-      this.muteLabel?.text(this.muted ? "Sound Effects: OFF" : "Sound Effects: ON");
+      this.muteLabel?.text(this.muted ? "Mute all: ON" : "Mute all: OFF");
+      muteFace.fill(this.muted ? COLORS.red : COLORS.green);
       this.muteChanges.emit(this.muted);
       this.layer.batchDraw();
     });
@@ -590,6 +585,54 @@ export class StartScreen implements StartScreenContract {
       onClick: () => { this.audioSettings.hide(); this.layer.batchDraw(); },
     }));
     this.layer.add(this.audioSettings);
+  }
+
+  /** Independent canvas sliders; positions stay intact when leaving Settings. */
+  private buildVolumeSlider(label: string, name: string, y: number, initial: number, change: (value: number) => void): void {
+    const trackWidth = 680;
+    const group = new Konva.Group({ x: 245, y, name });
+    const labelNode = createText({ text: label, width: 600, fontSize: 32, fill: COLORS.purple, listening: false });
+    const valueNode = createText({
+      x: trackWidth + 30, y: 46, width: 160, text: Math.round(initial * 100) + "%",
+      fontSize: 30, fill: COLORS.purple, listening: false, name: name + "-value",
+    });
+    const track = new Konva.Rect({
+      y: 55, width: trackWidth, height: 20, cornerRadius: 10, fill: COLORS.locked,
+      name: name + "-track",
+    });
+    const progress = new Konva.Rect({
+      y: 55, width: initial * trackWidth, height: 20, cornerRadius: 10,
+      fill: COLORS.green, listening: false,
+    });
+    const thumb = new Konva.Circle({
+      x: initial * trackWidth, y: 65, radius: 19, fill: COLORS.white,
+      stroke: COLORS.purple, strokeWidth: 3, draggable: true, name: name + "-thumb",
+    });
+    const update = (value: number): void => {
+      const normalized = Math.round(clampVolume(value) * 100) / 100;
+      thumb.position({ x: normalized * trackWidth, y: 65 });
+      progress.width(normalized * trackWidth);
+      valueNode.text(Math.round(normalized * 100) + "%");
+      change(normalized);
+      this.layer.batchDraw();
+    };
+    thumb.on("dragmove", () => update(thumb.x() / trackWidth));
+    thumb.on("mouseenter", () => setCursor(thumb, "grab"));
+    thumb.on("mouseleave", () => setCursor(thumb, ""));
+    track.on("click tap", () => {
+      const point = group.getRelativePointerPosition();
+      if (point) update(point.x / trackWidth);
+    });
+    group.add(labelNode, track, progress, thumb, valueNode);
+    this.audioSettings.add(group);
+  }
+
+  onMusicVolumeChange(cb: (value: number) => void): Unsubscribe {
+    return this.musicVolumeChanges.add(cb);
+  }
+
+  onSfxVolumeChange(cb: (value: number) => void): Unsubscribe {
+    return this.sfxVolumeChanges.add(cb);
   }
 
   onAudioMuteChange(cb: (muted: boolean) => void): Unsubscribe {
@@ -614,6 +657,13 @@ export class StartScreen implements StartScreenContract {
 
   onCredits(cb: () => void): Unsubscribe {
     return this.credits.add(cb);
+  }
+
+  /** Shared entry into difficulty selection from Play and the tutorial. */
+  showDifficultySelection(): void {
+    this.mainMenuGroup.hide();
+    this.difficultyGroup.show();
+    this.layer.batchDraw();
   }
 
   show(): void {

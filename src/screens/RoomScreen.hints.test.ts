@@ -34,7 +34,7 @@ describe("RoomScreen hint modal", () => {
   }
 
   it("opens the Figma-inspired modal and emits the hint request", () => {
-    const requested = vi.fn();
+    const requested = vi.fn(() => screen.showHint(1));
     screen.onHint(requested);
     clickHint();
     expect(screen.layer.findOne(".hint-modal")!.visible()).toBe(true);
@@ -46,21 +46,16 @@ describe("RoomScreen hint modal", () => {
     expect(created[created.length - 1].interactionEnabled).toBe(true);
   });
 
-  it("limits hints to two, including after re-entering a room", () => {
-    const requested = vi.fn();
+  it("displays the limit message when the game rejects a hint", () => {
+    const requested = vi.fn(() => screen.showHint(null));
     screen.onHint(requested);
-    clickHint(); closeHint();
-    clickHint(); closeHint();
     clickHint();
-    expect(requested).toHaveBeenCalledTimes(2);
+    expect(requested).toHaveBeenCalledOnce();
     expect((screen.layer.findOne(".hint-message")! as Konva.Text).text()).toContain("both hints");
-    screen.setRoom(room, 2);
-    closeHint();
-    clickHint();
-    expect(requested).toHaveBeenCalledTimes(2);
   });
 
   it("closes the modal when the room is hidden", () => {
+    screen.onHint(() => screen.showHint(1));
     clickHint();
     screen.hide();
     expect(screen.layer.findOne(".hint-modal")!.visible()).toBe(false);
@@ -73,7 +68,7 @@ describe("RoomScreen hint modal", () => {
     screen.setRoom(new Room({ id: "new_room", name: "New Room", question, puzzle }));
     // Power Box and Laser Match use the modal's canvas shield, with no HTML-input hook.
     Object.defineProperty(created.at(-1)!, "setInteractionEnabled", { value: undefined });
-    const requested = vi.fn();
+    const requested = vi.fn(() => screen.showHint(1));
     screen.onHint(requested);
     clickHint();
     expect((screen.layer.findOne(".hint-message")! as Konva.Text).text()).toContain(hintText);
