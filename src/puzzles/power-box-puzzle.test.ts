@@ -20,14 +20,14 @@ describe("PowerBoxPuzzle", () => {
     new PowerBoxPuzzle(PAIRS, { layer, ...OPTIONS });
 
     const texts = visibleTexts(layer);
-    for (const equation of ["x · 2 + 3 = 13", "x / 2 - 1 = 3", "x · -3 + 4 = 10"]) {
+    for (const equation of ["2x + 3 = 13", "x / 2 - 1 = 3", "-3x + 4 = 10"]) {
       expect(texts).toContain(equation);
     }
   });
 
   it("re-entering the Room (a new puzzle with the same pairs) shows the same equations", () => {
     const layer = new Konva.Layer();
-    const equations = () => visibleTexts(layer).filter((text) => text.startsWith("x "));
+    const equations = () => visibleTexts(layer).filter((text) => text.includes("x"));
 
     const first = new PowerBoxPuzzle(PAIRS, { layer, ...OPTIONS });
     const before = equations();

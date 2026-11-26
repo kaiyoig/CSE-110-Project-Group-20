@@ -6,7 +6,8 @@ import type { RoomKind } from "../map/Room";
  * Pure data + simple rules; no timers or DOM here (see ScoreController).
  *
  * Rules (decided by PingShu — tweak the constants below to rebalance):
- *  - A heist starts with 1 hour on the clock (it only runs inside rooms).
+ *  - A heist starts with TIME_LIMIT_MINUTES[difficulty] on the clock
+ *    (Easy 10, Medium 30, Hard 50; it only runs inside rooms).
  *  - Each room is one question. Solving a room gives:
  *      main room:  1 correct answer,  $100 × difficulty multiplier
  *      bonus room: 3 correct answers, $300 × difficulty multiplier
@@ -36,7 +37,26 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   [Difficulty.Hard]: "Hard",
 };
 
-export const DEFAULT_TIME_LIMIT_MINUTES = 60;
+/**
+ * Minutes on the clock for each Difficulty. Set from playtesting: an
+ * experienced player finished Easy (10 rooms) in about 2 min, Medium
+ * (15 rooms) in about 5.5 min and Hard (20 rooms) in about 13 min, not
+ * counting wrong-answer penalties, so these leave a new player about 4–5×
+ * that (a little less on Hard, so it stays the tightest).
+ */
+export const TIME_LIMIT_MINUTES: Record<Difficulty, number> = {
+  [Difficulty.Easy]: 10,
+  [Difficulty.Medium]: 30,
+  [Difficulty.Hard]: 50,
+};
+
+/** Starting time on the clock, in ms, for a Difficulty. */
+export function timeLimitMsFor(difficulty: Difficulty): number {
+  return minutesToMs(TIME_LIMIT_MINUTES[difficulty]);
+}
+
+/** The clock for the default Difficulty (Easy). */
+export const DEFAULT_TIME_LIMIT_MINUTES = TIME_LIMIT_MINUTES[Difficulty.Easy];
 export const DEFAULT_TIME_LIMIT_MS = minutesToMs(DEFAULT_TIME_LIMIT_MINUTES);
 
 export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
@@ -66,7 +86,7 @@ export const MAX_HINTS_PER_ROOM = 2;
 
 export interface ScoreOptions {
   difficulty?: Difficulty;
-  /** Starting time on the clock. Defaults to 1 hour. */
+  /** Starting time on the clock. Defaults to TIME_LIMIT_MINUTES for the Difficulty. */
   timeLimitMs?: number;
 }
 
@@ -96,10 +116,11 @@ export class ScoreModel {
   private timeRemainingMs: number;
 
   constructor(options: ScoreOptions = {}) {
-    const { difficulty = Difficulty.Easy, timeLimitMs = DEFAULT_TIME_LIMIT_MS } = options;
+    const { difficulty = Difficulty.Easy } = options;
     if (!isDifficultyType(difficulty)) {
       throw new RangeError(`unknown difficulty: ${difficulty}`);
     }
+    const { timeLimitMs = timeLimitMsFor(difficulty) } = options;
     if (!Number.isFinite(timeLimitMs) || timeLimitMs <= 0) {
       throw new RangeError(`timeLimitMs must be a positive number, got ${timeLimitMs}`);
     }
