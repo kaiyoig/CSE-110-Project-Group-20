@@ -169,8 +169,8 @@ class BasicMultistepPuzzle implements Puzzle {
       // Arithmetic Steps have a prompt and are checked like the solver does
       // (7/3, 2.5 and 3x all count when they equal the answer in simplest
       // form); Operation Steps must pick the exact operation.
-      const isArithmetic = stepPrompt !== undefined
-      const answer: StepAnswer = {
+        const isArithmetic = this.controller.getState() === 'Arithmetic' && stepPrompt !== undefined      
+        const answer: StepAnswer = {
         playerAnswer, correctAnswer, isLastStep, stepPrompt,
         ...(isArithmetic ? { isMultistepArithmetic: true } : {}),
       }

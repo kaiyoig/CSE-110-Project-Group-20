@@ -82,7 +82,7 @@ describe('BasicMultistepPuzzle', () => {
     expect(t.answers).toHaveLength(0)
 
     moveMinusSeven(t)
-    expect(t.answers).toEqual([{ playerAnswer: '+', correctAnswer: '+', isLastStep: false, stepPrompt: undefined }])
+    expect(t.answers).toEqual([{ playerAnswer: '+', correctAnswer: '+', isLastStep: false, stepPrompt: 'Choose an operation to move -7' }])
   })
 
   it('a wrong operation is reported, lights nothing and keeps waiting for a pick', () => {
