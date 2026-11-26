@@ -7,6 +7,13 @@
  */
 export const MULTIPLY_SYMBOL = "·";
 
+/**
+ * Shows maths the way it's written in class: a number times x is written
+ * number first (`x * 3` reads `3x`, `x * -17` reads `-17x`), and any other
+ * `*` becomes `·`. Division stays as it is (`x / 4`).
+ */
 export function formatMath(text: string): string {
-  return text.replace(/\*/g, MULTIPLY_SYMBOL);
+  return text
+    .replace(/\bx \* (-?\d+(?:\/\d+)?)(?![\d/])/g, "$1x")
+    .replace(/\*/g, MULTIPLY_SYMBOL);
 }

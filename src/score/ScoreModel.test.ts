@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { ScoreModel, Difficulty, DIFFICULTY_LABEL, DEFAULT_TIME_LIMIT_MINUTES, isDifficultyType } from "./ScoreModel";
+import { ScoreModel, Difficulty, DIFFICULTY_LABEL, DEFAULT_TIME_LIMIT_MINUTES, TIME_LIMIT_MINUTES, isDifficultyType } from "./ScoreModel";
 
-const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const EASY = 10 * MINUTE;
 
 describe("ScoreModel", () => {
-  it("starts with 1 hour, no money, nothing solved", () => {
+  it("starts with Easy's 10 minutes, no money, nothing solved", () => {
     const m = new ScoreModel();
-    expect(m.getTimeRemainingMs()).toBe(HOUR);
+    expect(m.getTimeRemainingMs()).toBe(EASY);
     expect(m.getMoney()).toBe(0);
     expect(m.getRoomsSolved()).toBe(0);
     expect(m.getDifficulty()).toBe(Difficulty.Easy);
@@ -25,9 +26,20 @@ describe("ScoreModel", () => {
     expect(Difficulty.Hard).toBe(2);
   });
 
-  it("defaults to a 60-minute heist", () => {
-    expect(DEFAULT_TIME_LIMIT_MINUTES).toBe(60);
-    expect(new ScoreModel().getTimeLimitMs()).toBe(HOUR);
+  it("gives each Difficulty its own clock: Easy 10, Medium 30, Hard 50 minutes", () => {
+    expect(TIME_LIMIT_MINUTES).toEqual({
+      [Difficulty.Easy]: 10,
+      [Difficulty.Medium]: 30,
+      [Difficulty.Hard]: 50,
+    });
+    expect(DEFAULT_TIME_LIMIT_MINUTES).toBe(10);
+    expect(new ScoreModel().getTimeLimitMs()).toBe(EASY);
+    expect(new ScoreModel({ difficulty: Difficulty.Medium }).getTimeLimitMs()).toBe(30 * MINUTE);
+    expect(new ScoreModel({ difficulty: Difficulty.Hard }).getTimeRemainingMs()).toBe(50 * MINUTE);
+  });
+
+  it("still takes an explicit time limit over the Difficulty's", () => {
+    expect(new ScoreModel({ difficulty: Difficulty.Hard, timeLimitMs: 5000 }).getTimeLimitMs()).toBe(5000);
   });
 
   it("isDifficultyType accepts only 0, 1 and 2", () => {
@@ -76,7 +88,7 @@ describe("ScoreModel", () => {
   it.each([-1, NaN, Infinity])("rejects invalid time amount %s", (bad: number) => {
     const m = new ScoreModel();
     expect(() => m.removeTime(bad)).toThrow(RangeError);
-    expect(m.getTimeRemainingMs()).toBe(HOUR);
+    expect(m.getTimeRemainingMs()).toBe(EASY);
   });
 
   it("rejects solving a room after time is up", () => {
@@ -101,16 +113,16 @@ describe("ScoreModel", () => {
       for (let i = 0; i < 12; i++) m.recordRoomSolved("main", "main_room");
       m.recordRoomSolved("bonus", "bonus_room");
       m.recordIncorrect(0);
-      m.removeTime(HOUR - 1000 * 1000); // 1000 s left
-      expect(m.calculateScore()).toBe(6 * 15 * 1000);
+      m.removeTime(m.getTimeRemainingMs() - 100 * 1000); // 100 s left
+      expect(m.calculateScore()).toBe(6 * 15 * 100);
     });
 
     it("gives ×1.2 for a flawless run", () => {
       const m = new ScoreModel();
       for (let i = 0; i < 12; i++) m.recordRoomSolved("main", "main_room");
-      m.removeTime(HOUR - 1000 * 1000);
+      m.removeTime(m.getTimeRemainingMs() - 100 * 1000);
       expect(m.isFlawless()).toBe(true);
-      expect(m.calculateScore()).toBe(Math.round(1 * 12 * 1000 * 1.2));
+      expect(m.calculateScore()).toBe(Math.round(1 * 12 * 100 * 1.2));
     });
 
     it("loses the flawless bonus after one wrong answer", () => {
@@ -119,7 +131,7 @@ describe("ScoreModel", () => {
       m.recordIncorrect(60_000);
       expect(m.isFlawless()).toBe(false);
       expect(m.getIncorrectAnswers()).toBe(1);
-      expect(m.getTimeRemainingMs()).toBe(HOUR - 60_000);
+      expect(m.getTimeRemainingMs()).toBe(EASY - 60_000);
     });
 
     it("is not flawless when caught, even with no wrong answers", () => {
@@ -138,7 +150,7 @@ describe("ScoreModel", () => {
     it("is 0 when caught", () => {
       const m = new ScoreModel({ difficulty: Difficulty.Hard });
       for (let i = 0; i < 11; i++) m.recordRoomSolved("main", "main_room");
-      m.removeTime(HOUR);
+      m.removeTime(m.getTimeLimitMs());
       expect(m.calculateScore()).toBe(0);
     });
 

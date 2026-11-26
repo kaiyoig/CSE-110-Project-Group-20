@@ -27,10 +27,10 @@ describe("PowerBoxView", () => {
     vi.useRealTimers();
   });
 
-  it("shows the title, every equation and every answer, with · for multiplication", () => {
+  it("shows the title, every equation and every answer, with the number before x", () => {
     const texts = visibleTexts(layer);
     expect(texts).toContain("⚡ SECURITY POWER BOX ⚡");
-    for (const text of ["x · 2 + 3 = 13", "x / 2 - 1 = 3", "x · -3 + 4 = 10", "-2", "5", "8"]) {
+    for (const text of ["2x + 3 = 13", "x / 2 - 1 = 3", "-3x + 4 = 10", "-2", "5", "8"]) {
       expect(texts).toContain(text);
     }
   });
@@ -60,8 +60,8 @@ describe("PowerBoxView", () => {
 
     const labels = [0, 1, 2, 3].map((i) => one(`.left-${i}`).findOne(".label-text")!);
     const box = one(".left-1").findOne(".label-box")!;
-    // Courier New glyphs are 0.6em wide; the text has to clear the box's border.
-    expect(labels[1].fontSize() * 0.6 * longest.length).toBeLessThanOrEqual(box.width() - box.strokeWidth());
+    // Courier New glyphs are 0.6em wide; the text as shown has to clear the box's border.
+    expect(labels[1].fontSize() * 0.6 * labels[1].text().length).toBeLessThanOrEqual(box.width() - box.strokeWidth());
     for (const label of labels) {
       expect(label.wrap()).toBe("none");
       expect(label.fontSize()).toBe(labels[1].fontSize());
