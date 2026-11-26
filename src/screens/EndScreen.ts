@@ -100,6 +100,22 @@ export class EndScreen implements EndScreenContract {
 
   private reviewAnswers: ReviewEntry[] = [];
   private reviewIndex = 0;
+  private reviewMistakePage = 0;
+
+  private readonly reviewPageControls = new Konva.Group({
+    name: "review-page-controls",
+    visible: false
+  });
+
+private readonly reviewPageText = createText({
+  x: 830,
+  y: 610,
+  width: 110,
+  text: "",
+  fontSize: 18,
+  align: "center",
+  fill: COLORS.purple
+});
 
   constructor(stageWidth: number, stageHeight: number) {
     fitLayer(this.layer, stageWidth, stageHeight);
@@ -282,21 +298,21 @@ export class EndScreen implements EndScreenContract {
     fill: COLORS.purple
   });
 
-  // Display the expected answer
+  // Display total incorrect attempts
   this.reviewTotalMistakesText = createText({
-    x: 300,
-    y: 510,
-    width: 840,
-    text: "Correct answer: —",
+    x: 250,
+    y: 610,
+    width: 400,
+    text: "",
     fontSize: 22,
     fill: COLORS.purple
   });
 
   //Display question number
   this.reviewCounterText = createText({
-    x: 860,
-    y: 610,
-    width: 300,
+    x: 980,
+    y: 250,
+    width: 180,
     text: "Question 0 of 0",
     fontSize: 22,
     align: "right",
@@ -355,6 +371,7 @@ this.reviewStatusBubble = new Konva.Rect({
     onClick: () => {
         if (this.reviewIndex > 0) {
         this.reviewIndex--;
+        this.reviewMistakePage = 0;
         this.showReviewQuestion();
         this.layer.batchDraw();
     }
@@ -371,6 +388,7 @@ this.reviewStatusBubble = new Konva.Rect({
     onClick: () => {
         if (this.reviewIndex < this.reviewAnswers.length - 1) {
             this.reviewIndex++;
+            this.reviewMistakePage = 0;
             this.showReviewQuestion();
             this.layer.batchDraw();
         }
@@ -391,6 +409,46 @@ this.reviewStatusBubble = new Konva.Rect({
         this.layer.batchDraw();
     }
   }));
+
+  this.reviewPageControls.add(
+  createButton({
+    x: 720,
+    y: 603,
+    width: 100,
+    height: 40,
+    label: "<",
+    name: "review-page-previous",
+    onClick: () => {
+      if (this.reviewMistakePage > 0) {
+        this.reviewMistakePage--;
+        this.showReviewQuestion();
+        this.layer.batchDraw();
+      }
+    }
+  }),
+
+  this.reviewPageText,
+
+  createButton({
+    x: 950,
+    y: 603,
+    width: 100,
+    height: 40,
+    label: ">",
+    name: "review-page-next",
+    onClick: () => {
+      const review = this.reviewAnswers[this.reviewIndex];
+
+      if (review && (this.reviewMistakePage + 1) * 4 < review.mistakes.length) {
+        this.reviewMistakePage++;
+        this.showReviewQuestion();
+        this.layer.batchDraw();
+      }
+    }
+  })
+);
+
+  this.reviewModal.add(this.reviewPageControls);
 
   this.layer.add(this.reviewModal);
 
@@ -465,6 +523,7 @@ this.reviewStatusBubble = new Konva.Rect({
 
 
     this.reviewIndex = 0;
+    this.reviewMistakePage = 0;
 
     const escaped = outcome === "escaped";
     this.outcome.text(escaped ? "Escaped!" : "Caught!");
@@ -500,6 +559,17 @@ this.reviewStatusBubble = new Konva.Rect({
      const review = this.reviewAnswers[this.reviewIndex];
       // clear previous questions mistake cards
       this.reviewMistakesGroup.destroyChildren();
+      const totalPages = review
+      ? Math.ceil(review.mistakes.length / 4)
+      : 0;
+
+      this.reviewPageControls.visible(totalPages > 1);
+
+     this.reviewPageText.text(
+    totalPages > 1
+    ? `Page ${this.reviewMistakePage + 1} of ${totalPages}`
+    : ""
+    );
 
     if (!review) {
         this.reviewCounterText.text("Question 0 of 0");
@@ -551,9 +621,9 @@ this.reviewStatusBubble = new Konva.Rect({
         this.reviewPlayerAnswerText.text("No incorrect attempts!");
         this.reviewTotalMistakesText.text("");
     } else {
-        // display up to four mistakes in a two-column grid
-        const visibleMistakes = review.mistakes.slice(0, 4);
-
+        // display four mistakes per page
+        const start = this.reviewMistakePage * 4;
+        const visibleMistakes = review.mistakes.slice(start, start + 4);
         visibleMistakes.forEach((mistake, index) => {
             const column = index % 2;
             const row = Math.floor(index / 2);
@@ -573,22 +643,24 @@ this.reviewStatusBubble = new Konva.Rect({
             }));
 
             card.add(createText({
-                x: 16,
-                y: 12,
-                width: 378,
-                text: `Step ${mistake.stepNumber} — ${mistake.stepPrompt ?? "Choose an operation"}`,
-                fontSize: 20,
-                fill: COLORS.purple,
-                wrap: "none",
-                ellipsis: true
-            }));
+              x: 16,
+              y: 8,
+              width: 378,
+              height: 42,
+              text: `Step ${mistake.stepNumber} — ${mistake.stepPrompt ?? "Choose an operation"}`,
+              fontSize: 16,
+              lineHeight: 1.1,
+              fill: COLORS.purple,
+              wrap: "word",
+              ellipsis: true
+          }));
 
             card.add(createText({
                 x: 16,
-                y: 49,
+                y: 56,
                 width: 180,
                 text: `Your attempt: ${mistake.firstIncorrectAnswer}`,
-                fontSize: 18,
+                fontSize: 16,
                 fill: "#B91C1C",
                 wrap: "none",
                 ellipsis: true
@@ -596,10 +668,10 @@ this.reviewStatusBubble = new Konva.Rect({
 
             card.add(createText({
                 x: 212,
-                y: 49,
+                y: 56,
                 width: 180,
                 text: `Expected: ${mistake.correctAnswer}`,
-                fontSize: 18,
+                fontSize: 16,
                 fill: "#15803D",
                 wrap: "none",
                 ellipsis: true

@@ -94,6 +94,31 @@ describe('MultistepSolverController', () => {
     expect(controller.getState()).not.toBe('Finished')
   })
 
+  it('passes a descriptive prompt for operation steps', () => {
+    const controller = new MultistepSolverController(
+      new MultistepSolverModel(),
+      fakeView()
+    )
+
+    let receivedPrompt: string | undefined
+
+    controller.onAnswerSubmit = (
+      _question,
+      _playerAnswer,
+      _correctAnswer,
+      _isLastStep,
+      stepPrompt
+    ) => {
+      receivedPrompt = stepPrompt
+    }
+
+    controller.setEquation('x + 3 = 8')
+    controller.operation(1, true)
+    controller.moveRequest('+')
+
+    expect(receivedPrompt).toBe('Choose an operation to move 3')
+   })
+  
   it('adds a negative divided variable term when it is moved across the equation', () => {
     const model = new MultistepSolverModel()
     const controller = new MultistepSolverController(model, fakeView())
@@ -276,6 +301,7 @@ describe('MultistepSolverController', () => {
     expect(model.getRightSide()).toEqual([
       numberTerm('10'), '/', numberTerm('3'),
     ])
+    
   })
 
   describe('isLastStep', () => {
